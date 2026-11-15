@@ -1,71 +1,31 @@
+# Dependencies
 node_modules/
-dist/
-dist-electron/
-*.tsbuildinfo
-*.tgz
 .pnpm-store/
-.vite/
-.playwright-cli/
-.electron-builder-cache/
-output/
-coverage/
-*.log
-*.local
-.DS_Store
-Thumbs.db
 
-# Local desktop/editor state
-.idea/
-.vscode/*
-!.vscode/extensions.json
-!.vscode/settings.json
-*.swp
-*.swo
-
-# Generated installer and release artifacts
-*.dmg
-*.exe
-*.msi
-*.zip
-*.app/
-*.dll
-*.pdb
-bin/
-obj/
-publish/
+# Build outputs & binaries
 dist/
 dist-native/
-.build/
-release/
-release-*/
-artifacts/
-electron-builder.yml
+agy-boost
+*.exe
 
-# Private local configuration and credentials. Never commit these.
+# Test & coverage
+coverage/
+*.test
+
+# Caches & logs
+*.log
+*.tsbuildinfo
+.eslintcache
+
+# Environment & local state
 .env
 .env.*
-!.env.example
-*.pem
-*.key
-*.crt
-*.cer
-*.pfx
-*.p12
-
-# Runtime state from a real installation, which normally lives in %APPDATA% but
-# would carry an API key with it if one were ever copied in here. storage.json is
-# where a plugin's settings are saved; api-calls.jsonl is the Gemini audit log.
-# (No bare settings.json rule: .vscode/settings.json above is committed.)
 storage.json
 trust.json
-*.jsonl
-
-# Local personal backup scripts
-backup.cmd
-backup*.cmd
-
-# Plugin runtime signal files
-interrupt.signal
-
-# Temporary scratch and investigation artifacts
 scratch/
+
+# OS & Editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

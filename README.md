@@ -25,11 +25,11 @@ Lightweight, ultra-fast, and zero-framework. Extend Antigravity with pure TypeSc
 
 AGY Boost is architected from the ground up for maximum speed and minimal memory footprint:
 
-| Layer | Technology | Purpose |
-| --- | --- | --- |
-| **UI Components** | **Pure TypeScript** | Zero-framework native DOM. No React, Vue, or heavy bundle overhead. Native styling matching Antigravity's Willow Design System. |
-| **Intensive Algorithms** | **WebAssembly (Wasm)** | High-performance compute compiled from Rust, AssemblyScript, Zig, or C/C++. Instant instantiation with `AGYBoost.wasm.load()`. |
-| **Background Daemons** | **Go (Golang)** | Ultra-lightweight sidecars (<10MB RAM, fast boot). Managed lifecycle with `AGYBoost.daemon.spawn()` that cleanly auto-terminates on disable. |
+| Layer                    | Technology             | Purpose                                                                                                                                      |
+| ------------------------ | ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| **UI Components**        | **Pure TypeScript**    | Zero-framework native DOM. No React, Vue, or heavy bundle overhead. Native styling matching Antigravity's Willow Design System.              |
+| **Intensive Algorithms** | **WebAssembly (Wasm)** | High-performance compute compiled from Rust, AssemblyScript, Zig, or C/C++. Instant instantiation with `AGYBoost.wasm.load()`.               |
+| **Background Daemons**   | **Go (Golang)**        | Ultra-lightweight sidecars (<10MB RAM, fast boot). Managed lifecycle with `AGYBoost.daemon.spawn()` that cleanly auto-terminates on disable. |
 
 ---
 
@@ -37,18 +37,20 @@ AGY Boost is architected from the ground up for maximum speed and minimal memory
 
 AGY Boost is language-agnostic. While the host engine is built in native Go and Pure TypeScript, you can write mods, themes, background services, and algorithms in the language you know best:
 
-| Language | Mod Tier | Execution Target | Best For | Typical Overhead |
-| :--- | :--- | :--- | :--- | :--- |
-| **🎨 Pure CSS** | Visual Theming | Native Browser CSS Engine | Color schemes, custom themes, syntax styling | **Zero overhead** (pure declarations) |
-| **⚡ JavaScript / TypeScript** | UI & DOM Controls | Native V8 Runtime | Buttons, modals, sidebar widgets, keyboard shortcuts | **< 1 ms** startup |
-| **🚀 AssemblyScript** | High-Performance Compute | WebAssembly (V8 Wasm) | Fast algorithms with TypeScript syntax (no Rust needed) | **Near-native speed**, zero learning curve |
-| **🐹 Go (Golang)** | Sidecars & Daemons / Wasm | Native OS Process / Wasm | File watchers, local servers, OS tools, background workers | **< 10MB RAM**, sub-millisecond IPC |
-| **🐍 Python** | Scripting & AI Automation | Spawned Sidecar via Daemon | AI models, local scripts, data processing, pipelines | Flexible scripting via IPC |
-| **🦀 Rust** | Intensive Algorithms | WebAssembly (`wasm32`) | Heavy math, AST parsers, streaming cryptography, diffing | **Maximum machine speed**, zero GC pauses |
-| **⚡ Zig / C / C++** | Low-Level Systems / Wasm | WebAssembly (`wasm32`) | Existing C libraries, low-level algorithms, audio/canvas | Direct linear memory access |
+| Language                       | Mod Tier                  | Execution Target           | Best For                                                   | Typical Overhead                           |
+| :----------------------------- | :------------------------ | :------------------------- | :--------------------------------------------------------- | :----------------------------------------- |
+| **🎨 Pure CSS**                | Visual Theming            | Native Browser CSS Engine  | Color schemes, custom themes, syntax styling               | **Zero overhead** (pure declarations)      |
+| **⚡ JavaScript / TypeScript** | UI & DOM Controls         | Native V8 Runtime          | Buttons, modals, sidebar widgets, keyboard shortcuts       | **< 1 ms** startup                         |
+| **🚀 AssemblyScript**          | High-Performance Compute  | WebAssembly (V8 Wasm)      | Fast algorithms with TypeScript syntax (no Rust needed)    | **Near-native speed**, zero learning curve |
+| **🐹 Go (Golang)**             | Sidecars & Daemons / Wasm | Native OS Process / Wasm   | File watchers, local servers, OS tools, background workers | **< 10MB RAM**, sub-millisecond IPC        |
+| **🐍 Python**                  | Scripting & AI Automation | Spawned Sidecar via Daemon | AI models, local scripts, data processing, pipelines       | Flexible scripting via IPC                 |
+| **🦀 Rust**                    | Intensive Algorithms      | WebAssembly (`wasm32`)     | Heavy math, AST parsers, streaming cryptography, diffing   | **Maximum machine speed**, zero GC pauses  |
+| **⚡ Zig / C / C++**           | Low-Level Systems / Wasm  | WebAssembly (`wasm32`)     | Existing C libraries, low-level algorithms, audio/canvas   | Direct linear memory access                |
 
 ### 1. 🎨 Pure CSS (Zero Code)
+
 Customize Antigravity's look and feel without writing a single line of JavaScript. Simply define your styles in a `.css` file referencing Antigravity's native CSS design tokens:
+
 ```css
 /* theme.css */
 :root {
@@ -58,7 +60,9 @@ Customize Antigravity's look and feel without writing a single line of JavaScrip
   --syntax-keyword: #ff7b72;
 }
 ```
+
 Register it in `mod.json`:
+
 ```json
 {
   "id": "dark-nord-theme",
@@ -69,7 +73,9 @@ Register it in `mod.json`:
 ```
 
 ### 2. ⚡ JavaScript & TypeScript
+
 Build interactive UI elements using Antigravity's Willow Design System and zero-framework DOM primitives:
+
 ```ts
 // index.js
 AGYBoost.ui.observe('[data-testid="conversation-row-sidebar"]', (row) => {
@@ -78,17 +84,22 @@ AGYBoost.ui.observe('[data-testid="conversation-row-sidebar"]', (row) => {
 ```
 
 ### 3. 🚀 AssemblyScript (TypeScript for WebAssembly)
+
 Want WebAssembly performance without learning Rust or C++? Write TypeScript syntax and compile directly to Wasm:
+
 ```ts
 // assembly/index.ts
 export function compute_score(input: i32, multiplier: i32): i32 {
-  return (input * multiplier) + 42;
+  return input * multiplier + 42;
 }
 ```
+
 Compile with `asc assembly/index.ts -o compute.wasm` and instantiate directly via `AGYBoost.wasm.load("compute.wasm")`.
 
 ### 4. 🐹 Go (Golang)
+
 Create ultra-lightweight background sidecar daemons that manage long-running tasks, file watchers, or local HTTP APIs:
+
 ```go
 // daemon/main.go
 package main
@@ -105,10 +116,13 @@ func main() {
 	http.ListenAndServe(":9876", nil)
 }
 ```
+
 Declare `"daemon": "my-daemon"` in `mod.json`. AGY Boost handles starting and cleanly terminating the process when the mod is toggled. Alternatively, compile Go directly to Wasm with `GOOS=js GOARCH=wasm`.
 
 ### 5. 🐍 Python
+
 Run AI automation, data processing, and scripting by spawning Python processes through the native daemon IPC bridge:
+
 ```ts
 // index.js
 const proc = await AGYBoost.daemon.spawn(["python3", "analyze.py"]);
@@ -119,7 +133,9 @@ proc.onStdout((data) => {
 ```
 
 ### 6. 🦀 Rust
+
 For CPU-bound computation, AST parsing, cryptography, and large-file diffing with guaranteed memory safety:
+
 ```rust
 // src/lib.rs
 #[no_mangle]
@@ -127,27 +143,32 @@ pub extern "C" fn fast_hash(input: i32) -> i32 {
     input.rotate_left(5) ^ 0x5F3759DF
 }
 ```
+
 Compile with `cargo build --target wasm32-unknown-unknown --release` and load instantly into Antigravity:
+
 ```ts
 const wasm = await AGYBoost.wasm.load<{ fast_hash: (x: number) => number }>("compute.wasm");
 const hash = wasm.exports.fast_hash(1337);
 ```
 
 ### 7. ⚡ Zig / C / C++
+
 Compile existing C/C++ libraries or ultra-fast Zig code to freestanding WebAssembly:
+
 ```zig
 // main.zig
 export fn add(a: i32, b: i32) i32 {
     return a + b;
 }
 ```
+
 Compile with `zig build-exe main.zig -target wasm32-freestanding -O ReleaseFast` and load the `.wasm` file into your mod.
 
 ---
 
 ## Features
 
-- **Dedicated Native Mods View**: Access the full-viewport **Mods** panel directly from Antigravity's sidebar beneath *Customizations*. Antigravity's native settings modal remains 100% pristine and untouched.
+- **Dedicated Native Mods View**: Access the full-viewport **Mods** panel directly from Antigravity's sidebar beneath _Customizations_. Antigravity's native settings modal remains 100% pristine and untouched.
 - **Runtime Injection**: Intercepts Antigravity safely at launch using a lightweight bootstrap without modifying any source files on disk permanently.
 - **Safe & Fully Reversible**: The original host archive is preserved as `_app.asar`. Uninstalling restores the original bundle byte-for-byte.
 - **Automatic Host Update Guardian**: Re-patches Antigravity seamlessly in the background when the application receives an official update.
@@ -171,6 +192,7 @@ if (typeof mod !== "undefined" && mod.onDispose) {
 ```
 
 With a `mod.json` beside it:
+
 ```json
 {
   "id": "quick-greet",
@@ -213,19 +235,24 @@ pnpm install
 
 ### Commands
 
-| Command | Description |
-| --- | --- |
-| `pnpm run test:fast` | Fast pre-push feedback: typecheck, short unit tests, client test suite |
-| `pnpm test` | Run full native Go test suite (unit + integration) |
-| `pnpm run test:integration` | Run end-to-end integration tests (`tests/integration/...`) |
-| `pnpm typecheck` | Typecheck Pure TypeScript client runtime |
-| `pnpm build` | Bundle client runtime (esbuild) and compile host Go binary |
-| `pnpm run build:all` | Cross-compile native binaries for macOS, Windows (`.exe`), and Linux |
-| `pnpm check` | Full CI verification pipeline (typecheck + test:all + build) |
+| Command                     | Description                                                                      |
+| --------------------------- | -------------------------------------------------------------------------------- |
+| `pnpm run format`           | Auto-format all code across all languages (Prettier + gofmt)                     |
+| `pnpm run format:check`     | Check code formatting across all languages without modifying files               |
+| `pnpm run lint`             | Run linters for all languages (ESLint for TS/JS + go vet / golangci-lint for Go) |
+| `pnpm run lint:fix`         | Automatically fix lint and formatting issues across all languages                |
+| `pnpm run typecheck`        | Run typechecking across all languages (TypeScript client/SDK + Go packages)      |
+| `pnpm run test:fast`        | Fast pre-push feedback: typecheck, short unit tests, client test suite           |
+| `pnpm test`                 | Run full native Go test suite (unit + integration)                               |
+| `pnpm run test:integration` | Run end-to-end integration tests (`tests/integration/...`)                       |
+| `pnpm build`                | Bundle client runtime (esbuild) and compile host Go binary                       |
+| `pnpm run build:all`        | Cross-compile native binaries for macOS, Windows (`.exe`), and Linux             |
+| `pnpm check`                | Full verification pipeline (format:check + lint + test:all + build)              |
 
 ### Integration Testing
 
 The integration test suite (`tests/integration/lifecycle_test.go`) verifies full lifecycle behavior using real simulated Antigravity directories:
+
 - Stock unpatched detection
 - Safe patching and bootstrap archive construction
 - Runtime injection verification
@@ -233,6 +260,7 @@ The integration test suite (`tests/integration/lifecycle_test.go`) verifies full
 - Byte-for-byte unpatch restoration
 
 Run integration tests directly via:
+
 ```bash
 pnpm run test:integration
 ```
@@ -247,6 +275,7 @@ pnpm run test:integration
 ```
 
 Inspect and live-reload modifications in your running Antigravity:
+
 ```bash
 node scripts/dev-inspect.mjs eval "window.AGYBoost.version"
 ```

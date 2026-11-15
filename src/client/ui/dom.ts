@@ -1,9 +1,13 @@
 // Minimal Zero-Framework DOM Builder for AGY Boost
 
+export type DOMEventHandler = {
+  bivariance(event: Event): unknown;
+}["bivariance"];
+
 export function el<K extends keyof HTMLElementTagNameMap>(
   tag: K,
-  attrs: Record<string, string | number | boolean | undefined | null | ((e: any) => void)> = {},
-  children: (Node | string | null | undefined)[] = []
+  attrs: Record<string, string | number | boolean | undefined | null | DOMEventHandler> = {},
+  children: Array<Node | string | null | undefined> = []
 ): HTMLElementTagNameMap[K] {
   const element = document.createElement(tag);
 
@@ -12,7 +16,7 @@ export function el<K extends keyof HTMLElementTagNameMap>(
 
     if (key.startsWith("on") && typeof value === "function") {
       const eventName = key.slice(2).toLowerCase();
-      element.addEventListener(eventName, value);
+      element.addEventListener(eventName, value as EventListener);
     } else if (key === "class" || key === "className") {
       element.setAttribute("class", String(value));
     } else if (key === "style" && typeof value === "string") {

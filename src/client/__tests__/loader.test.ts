@@ -5,8 +5,14 @@ import { loadWasm } from "../wasm/loader.js";
 describe("Wasm Loader (loadWasm)", () => {
   // Minimal valid WebAssembly binary module (8 bytes: magic number \0asm and version 1)
   const MINIMAL_WASM_BYTES = new Uint8Array([
-    0x00, 0x61, 0x73, 0x6d, // \0asm
-    0x01, 0x00, 0x00, 0x00, // version 1
+    0x00,
+    0x61,
+    0x73,
+    0x6d, // \0asm
+    0x01,
+    0x00,
+    0x00,
+    0x00, // version 1
   ]);
 
   test("instantiates WebAssembly instance from valid Uint8Array buffer", async () => {
@@ -41,7 +47,7 @@ describe("Wasm Loader (loadWasm)", () => {
           });
         }
         return new Response("Not found", { status: 404, statusText: "Not Found" });
-      }) as any;
+      }) as typeof fetch;
 
       const instance = await loadWasm("http://127.0.0.1:42042/mods/file?id=test&file=main.wasm");
       assert.ok(instance instanceof WebAssembly.Instance);

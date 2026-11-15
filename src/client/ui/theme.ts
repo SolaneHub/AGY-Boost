@@ -15,7 +15,7 @@ export async function syncModStyles(bridge: DaemonBridge): Promise<void> {
     if (appliedModStyles.has(mod.id)) continue;
 
     const styles = Array.isArray(mod.style) ? mod.style : [mod.style];
-    const cleanups: (() => void)[] = [];
+    const cleanups: Array<() => void> = [];
 
     for (const styleFile of styles) {
       if (typeof styleFile !== "string") continue;

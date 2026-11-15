@@ -22,7 +22,7 @@ export class DaemonBridge {
   }
 
   private getAuthHeaders(): Record<string, string> {
-    let token = (globalThis as any).__AGY_TOKEN__;
+    let token: string | null | undefined = (globalThis as { __AGY_TOKEN__?: string }).__AGY_TOKEN__;
     if (!token && typeof document !== "undefined" && document.documentElement?.dataset?.agyToken) {
       token = document.documentElement.dataset.agyToken;
     }
@@ -118,7 +118,11 @@ export class DaemonBridge {
     return this.killDaemon(modId);
   }
 
-  async spawnDaemon(modId: string, binaryPath: string, args: string[] = []): Promise<{ ok: boolean; pid?: number }> {
+  async spawnDaemon(
+    modId: string,
+    binaryPath: string,
+    args: string[] = []
+  ): Promise<{ ok: boolean; pid?: number }> {
     try {
       const res = await fetch(`${this.baseUrl}/daemon/spawn`, {
         method: "POST",
@@ -129,7 +133,7 @@ export class DaemonBridge {
         body: JSON.stringify({ modId, binaryPath, args }),
       });
       return await res.json();
-    } catch (err) {
+    } catch {
       return { ok: false };
     }
   }

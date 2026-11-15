@@ -12,6 +12,22 @@ import {
 import { DaemonBridge, ModInfo } from "../bridge/daemon.js";
 import { mountHeader, mountComposer } from "../ui/slots.js";
 
+interface TestRunnerGlobals {
+  AGYBoost?: {
+    version: string;
+    wasm: unknown;
+    ui: unknown;
+  };
+  __testModRun?: () => void;
+  __testModClean?: () => void;
+  __captureContext?: (ctx: unknown) => void;
+  __runDefault?: () => void;
+  __cleanDefault?: () => void;
+  __inc?: () => void;
+}
+
+const testGlobals = globalThis as unknown as TestRunnerGlobals;
+
 describe("Mod Script Lifecycle Manager (mods-runner)", () => {
   let teardownDOM: () => void;
   let mockMods: ModInfo[] = [];
@@ -39,12 +55,12 @@ describe("Mod Script Lifecycle Manager (mods-runner)", () => {
     resetModScripts();
     if (typeof document !== "undefined" && document.body) {
       while (document.body.childNodes.length > 0) {
-        document.body.childNodes[0].remove();
+        document.body.childNodes[0]?.remove();
       }
     }
     mockMods = [];
     mockFiles = {};
-    (globalThis as any).AGYBoost = {
+    testGlobals.AGYBoost = {
       version: "0.0.0",
       wasm: { test: true },
       ui: { testUI: true },
@@ -53,7 +69,7 @@ describe("Mod Script Lifecycle Manager (mods-runner)", () => {
 
   afterEach(() => {
     resetModScripts();
-    delete (globalThis as any).AGYBoost;
+    delete testGlobals.AGYBoost;
   });
 
   test("executes script and registers returned cleanup function", async () => {
@@ -72,10 +88,10 @@ describe("Mod Script Lifecycle Manager (mods-runner)", () => {
       },
     ];
 
-    (globalThis as any).__testModRun = () => {
+    testGlobals.__testModRun = () => {
       executed = true;
     };
-    (globalThis as any).__testModClean = () => {
+    testGlobals.__testModClean = () => {
       cleanedUp = true;
     };
 
@@ -94,18 +110,25 @@ describe("Mod Script Lifecycle Manager (mods-runner)", () => {
     assert.equal(cleanedUp, false, "cleanup should not have run yet");
 
     // Disable mod and sync again
-    mockMods[0].enabled = false;
+    if (mockMods[0]) mockMods[0].enabled = false;
     await syncModScripts(bridge);
 
     assert.equal(cleanedUp, true, "cleanup should run on disable");
     assert.equal(isModScriptActive("test-runner-mod"), false);
 
-    delete (globalThis as any).__testModRun;
-    delete (globalThis as any).__testModClean;
+    delete testGlobals.__testModRun;
+    delete testGlobals.__testModClean;
   });
 
   test("passes context with manifest, wasm, daemon, ui and registers onDispose", async () => {
-    let receivedContext: any = null;
+    interface CapturedContext {
+      manifest: { id: string };
+      wasm: { test: boolean };
+      ui: { testUI: boolean };
+      daemon: DaemonBridge;
+      onDispose: (fn: () => void) => void;
+    }
+    let receivedContext: CapturedContext | null = null;
     let disposed = false;
 
     mockMods = [
@@ -120,9 +143,9 @@ describe("Mod Script Lifecycle Manager (mods-runner)", () => {
       },
     ];
 
-    (globalThis as any).__captureContext = (ctx: any) => {
-      receivedContext = ctx;
-      ctx.onDispose(() => {
+    testGlobals.__captureContext = (ctx: unknown) => {
+      receivedContext = ctx as CapturedContext;
+      (ctx as CapturedContext).onDispose(() => {
         disposed = true;
       });
     };
@@ -135,17 +158,18 @@ describe("Mod Script Lifecycle Manager (mods-runner)", () => {
     await syncModScripts(bridge);
 
     assert.ok(receivedContext, "context should be passed to script");
-    assert.equal(receivedContext.manifest.id, "ctx-mod");
-    assert.equal(receivedContext.wasm.test, true);
-    assert.equal(receivedContext.ui.testUI, true);
-    assert.equal(receivedContext.daemon, bridge);
+    const ctx = receivedContext as CapturedContext;
+    assert.equal(ctx.manifest.id, "ctx-mod");
+    assert.equal(ctx.wasm.test, true);
+    assert.equal(ctx.ui.testUI, true);
+    assert.equal(ctx.daemon, bridge);
     assert.equal(isModScriptActive("ctx-mod"), true);
 
     unloadModScript("ctx-mod");
     assert.equal(disposed, true, "onDispose callback should be called on unload");
     assert.equal(isModScriptActive("ctx-mod"), false);
 
-    delete (globalThis as any).__captureContext;
+    delete testGlobals.__captureContext;
   });
 
   test("handles module.exports and export default transformations", async () => {
@@ -164,10 +188,10 @@ describe("Mod Script Lifecycle Manager (mods-runner)", () => {
       },
     ];
 
-    (globalThis as any).__runDefault = () => {
+    testGlobals.__runDefault = () => {
       defaultRun = true;
     };
-    (globalThis as any).__cleanDefault = () => {
+    testGlobals.__cleanDefault = () => {
       defaultClean = true;
     };
 
@@ -189,8 +213,8 @@ describe("Mod Script Lifecycle Manager (mods-runner)", () => {
     unloadModScript("es-mod");
     assert.equal(defaultClean, true);
 
-    delete (globalThis as any).__runDefault;
-    delete (globalThis as any).__cleanDefault;
+    delete testGlobals.__runDefault;
+    delete testGlobals.__cleanDefault;
   });
 
   test("does not re-execute already active scripts on subsequent syncs", async () => {
@@ -208,7 +232,7 @@ describe("Mod Script Lifecycle Manager (mods-runner)", () => {
       },
     ];
 
-    (globalThis as any).__inc = () => {
+    testGlobals.__inc = () => {
       executionCount++;
     };
 
@@ -223,7 +247,7 @@ describe("Mod Script Lifecycle Manager (mods-runner)", () => {
     await syncModScripts(bridge);
     assert.equal(executionCount, 1, "should not execute again while still active");
 
-    delete (globalThis as any).__inc;
+    delete testGlobals.__inc;
   });
 
   test("safely catches execution errors without throwing", async () => {
@@ -254,7 +278,9 @@ describe("Mod Script Lifecycle Manager (mods-runner)", () => {
     const candidatePaths = [
       path.resolve(process.cwd(), "mods/effort-optimizer/index.js"),
       path.resolve(process.cwd(), "../../mods/effort-optimizer/index.js"),
-      path.resolve("/Users/veronicalostimolo/Library/Application Support/AGYBoost/mods/effort-optimizer/index.js"),
+      path.resolve(
+        "/Users/veronicalostimolo/Library/Application Support/AGYBoost/mods/effort-optimizer/index.js"
+      ),
     ];
     let realScript = "";
     for (const p of candidatePaths) {
@@ -279,10 +305,12 @@ describe("Mod Script Lifecycle Manager (mods-runner)", () => {
     mockFiles["effort-optimizer:index.js"] = realScript;
 
     // Setup mock UI with mountHeader and mountComposer
-    (globalThis as any).AGYBoost.ui = {
-      mountHeader,
-      mountComposer,
-    };
+    if (testGlobals.AGYBoost) {
+      testGlobals.AGYBoost.ui = {
+        mountHeader,
+        mountComposer,
+      };
+    }
 
     // Setup mock header toolbar in document
     const toolbar = document.createElement("div");
@@ -313,29 +341,47 @@ describe("Mod Script Lifecycle Manager (mods-runner)", () => {
     assert.equal(isModScriptActive("effort-optimizer"), true);
 
     // Verify button is mounted in both chat composer and header
-    const buttons = document.querySelectorAll('[data-agy-effort-optimizer="true"]') as NodeListOf<HTMLButtonElement>;
+    const buttons = document.querySelectorAll(
+      '[data-agy-effort-optimizer="true"]'
+    ) as NodeListOf<HTMLButtonElement>;
     assert.ok(buttons.length >= 1, "Effort optimizer button should be mounted in the UI");
 
-    const composerPill = document.querySelector('[data-agy-effort-slot="composer"]') as HTMLButtonElement | null;
+    const composerPill = document.querySelector(
+      '[data-agy-effort-slot="composer"]'
+    ) as HTMLButtonElement | null;
     assert.ok(composerPill, "Composer pill must be mounted inside the chat UI");
-    assert.equal(composerPill.parentElement, footerRow, "Composer pill must be attached next to model-selector-trigger");
+    assert.equal(
+      composerPill.parentElement,
+      footerRow,
+      "Composer pill must be attached next to model-selector-trigger"
+    );
     assert.ok(composerPill.textContent?.includes("High"), "Default effort level should be High");
 
     // Click composer pill to toggle to next level
     composerPill.click();
-    assert.ok(composerPill.textContent?.includes("Max"), "Clicking button should toggle to Max (1.0)");
+    assert.ok(
+      composerPill.textContent?.includes("Max"),
+      "Clicking button should toggle to Max (1.0)"
+    );
 
     // Click again to cycle to Low
     composerPill.click();
-    assert.ok(composerPill.textContent?.includes("Low"), "Clicking again should toggle to Low (0.2)");
+    assert.ok(
+      composerPill.textContent?.includes("Low"),
+      "Clicking again should toggle to Low (0.2)"
+    );
 
     // Disable mod and sync again
-    mockMods[0].enabled = false;
+    if (mockMods[0]) mockMods[0].enabled = false;
     await syncModScripts(bridge);
 
     assert.equal(isModScriptActive("effort-optimizer"), false);
     const buttonsAfter = document.querySelectorAll('[data-agy-effort-optimizer="true"]');
-    assert.equal(buttonsAfter.length, 0, "All effort optimizer buttons should be cleanly unmounted when mod is disabled");
+    assert.equal(
+      buttonsAfter.length,
+      0,
+      "All effort optimizer buttons should be cleanly unmounted when mod is disabled"
+    );
 
     toolbar.remove();
     conv.remove();

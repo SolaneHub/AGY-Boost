@@ -69,4 +69,3 @@ func TestInspectCandidateIsPatchedCheck(t *testing.T) {
 		t.Errorf("expected IsPatched=false when app.asar is stock even if marker and backup exist")
 	}
 }
-

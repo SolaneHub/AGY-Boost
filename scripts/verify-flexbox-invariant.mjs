@@ -62,7 +62,9 @@ async function sendCDP(webSocketUrl, method, params = {}) {
   try {
     await new Promise((resolve, reject) => {
       socket.addEventListener("open", resolve, { once: true });
-      socket.addEventListener("error", () => reject(new Error("CDP socket open failed")), { once: true });
+      socket.addEventListener("error", () => reject(new Error("CDP socket open failed")), {
+        once: true,
+      });
     });
 
     const id = Math.floor(Math.random() * 1000000);
@@ -120,15 +122,19 @@ async function main() {
   const tmpDir = await mkdtemp(path.join(os.tmpdir(), "agy-test-chrome-"));
   const fixtureUrl = pathToFileURL(FIXTURE_PATH).href;
 
-  const chromeProc = spawn(CHROME_PATH, [
-    "--headless=new",
-    "--disable-gpu",
-    "--no-sandbox",
-    "--disable-background-networking",
-    `--remote-debugging-port=${PORT}`,
-    `--user-data-dir=${tmpDir}`,
-    fixtureUrl,
-  ], { stdio: "ignore" });
+  const chromeProc = spawn(
+    CHROME_PATH,
+    [
+      "--headless=new",
+      "--disable-gpu",
+      "--no-sandbox",
+      "--disable-background-networking",
+      `--remote-debugging-port=${PORT}`,
+      `--user-data-dir=${tmpDir}`,
+      fixtureUrl,
+    ],
+    { stdio: "ignore" }
+  );
 
   let allPassed = false;
 
@@ -155,9 +161,12 @@ async function main() {
 
     // Wait for fixture to load and elements to be mounted
     for (let i = 0; i < 40; i++) {
-      const ready = await evalInPage(wsUrl, `
+      const ready = await evalInPage(
+        wsUrl,
+        `
         Boolean(document.querySelector('[data-testid="conversation-view"]') && document.querySelector('[data-agy-boost-mods-btn="true"]'))
-      `);
+      `
+      );
       if (ready) break;
       await delay(100);
     }
@@ -175,13 +184,18 @@ async function main() {
     };
 
     // 1. Check sidebar button
-    const hasSidebarBtn = await evalInPage(wsUrl, `
+    const hasSidebarBtn = await evalInPage(
+      wsUrl,
+      `
       Boolean(document.querySelector('[data-agy-boost-mods-btn="true"]'))
-    `);
+    `
+    );
     report.sidebarButtonMounted = Boolean(hasSidebarBtn);
 
     // Initial state check of conversation-view
-    report.initialFlexState = await evalInPage(wsUrl, `(() => {
+    report.initialFlexState = await evalInPage(
+      wsUrl,
+      `(() => {
       const conv = document.querySelector('[data-testid="conversation-view"]');
       const child0 = document.getElementById('child-0-messages');
       const child1 = document.getElementById('child-1-composer');
@@ -193,23 +207,32 @@ async function main() {
         child0Height: child0.clientHeight,
         child1Height: child1.clientHeight,
       };
-    })()`);
+    })()`
+    );
 
     // 2. Click "Mods" button to open view
-    await evalInPage(wsUrl, `
+    await evalInPage(
+      wsUrl,
+      `
       document.querySelector('[data-agy-boost-mods-btn="true"]').click()
-    `);
+    `
+    );
     await delay(500);
 
-    report.modsViewOpened = await evalInPage(wsUrl, `(() => {
+    report.modsViewOpened = await evalInPage(
+      wsUrl,
+      `(() => {
       const view = document.getElementById('agy-boost-mods-view');
       const conv = document.querySelector('[data-testid="conversation-view"]');
       const convParent = conv ? conv.parentElement : null;
       return Boolean(view) && (conv.style.display === 'none' || (convParent && convParent.style.display === 'none'));
-    })()`);
+    })()`
+    );
 
     // 3. Switch to / check Marketplace tab
-    await evalInPage(wsUrl, `(() => {
+    await evalInPage(
+      wsUrl,
+      `(() => {
       const tabs = document.querySelectorAll('[data-testid="plugins-tabs"] button, [data-testid="mods-tabs"] button');
       for (const t of tabs) {
         if (t.textContent.includes('Marketplace')) {
@@ -217,40 +240,55 @@ async function main() {
           break;
         }
       }
-    })()`);
+    })()`
+    );
     await delay(500);
 
-    report.marketplaceRendered = await evalInPage(wsUrl, `(() => {
+    report.marketplaceRendered = await evalInPage(
+      wsUrl,
+      `(() => {
       const spotlight = document.querySelector('[data-testid="featured-carousel"]') || document.querySelector('.agy-spotlight-host');
       const categoryCards = document.querySelectorAll('[data-testid="customization-card"]');
       return Boolean(spotlight) && categoryCards.length > 0;
-    })()`);
+    })()`
+    );
 
     // 3b. Test 1:1 Mod Detail View Navigation from Marketplace
-    await evalInPage(wsUrl, `(() => {
+    await evalInPage(
+      wsUrl,
+      `(() => {
       const card = document.querySelector('[data-card-name="Effort Optimizer"] a') || document.querySelector('[data-card-name="Effort Optimizer"]');
       if (card) card.click();
-    })()`);
+    })()`
+    );
     await delay(500);
 
-    report.modDetailRendered = await evalInPage(wsUrl, `(() => {
+    report.modDetailRendered = await evalInPage(
+      wsUrl,
+      `(() => {
       const detail = document.querySelector('[data-testid="plugin-detail"]');
       const h1 = detail ? detail.querySelector('h1') : null;
       const prompts = detail ? detail.querySelectorAll('[data-testid="plugin-suggested-prompt-row"]') : [];
       const tabs = detail ? detail.querySelectorAll('[role="tab"]') : [];
       const footer = detail ? detail.querySelector('[data-testid="plugin-detail-footer"]') : null;
       return Boolean(detail) && Boolean(h1 && h1.textContent.includes('Effort Optimizer')) && prompts.length > 0 && tabs.length === 2 && Boolean(footer);
-    })()`);
+    })()`
+    );
 
     // Click Back to return to Marketplace
-    await evalInPage(wsUrl, `(() => {
+    await evalInPage(
+      wsUrl,
+      `(() => {
       const back = document.querySelector('[data-testid="plugin-detail-back-button"]');
       if (back) back.click();
-    })()`);
+    })()`
+    );
     await delay(500);
 
     // 4. Switch to Installed tab
-    await evalInPage(wsUrl, `(() => {
+    await evalInPage(
+      wsUrl,
+      `(() => {
       const tabs = document.querySelectorAll('[data-testid="plugins-tabs"] button, [data-testid="mods-tabs"] button');
       for (const t of tabs) {
         if (t.textContent.includes('Installed')) {
@@ -258,19 +296,25 @@ async function main() {
           break;
         }
       }
-    })()`);
+    })()`
+    );
     await delay(500);
 
-    report.installedTabRendered = await evalInPage(wsUrl, `(() => {
+    report.installedTabRendered = await evalInPage(
+      wsUrl,
+      `(() => {
       const view = document.getElementById('agy-boost-mods-view');
       const headers = Array.from(view.querySelectorAll('h2, h3')).map(h => h.textContent.trim());
       const hasInstalledHeader = headers.some(h => h.includes('Installed Mods'));
       const hasEnginesHeader = headers.some(h => h.includes('Engine') || h.includes('Installed Engines'));
       return hasInstalledHeader && hasEnginesHeader;
-    })()`);
+    })()`
+    );
 
     // 5. Verify Navigation Active/Hover Loop including New Conversation
-    report.sidebarNavLoop = await evalInPage(wsUrl, `(() => {
+    report.sidebarNavLoop = await evalInPage(
+      wsUrl,
+      `(() => {
       const mods = document.querySelector('[data-agy-boost-mods-btn="true"]');
       const auto = document.querySelector('[data-testid="automations-button"]');
       const cust = Array.from(document.querySelectorAll('[data-testid="sidebar-navigation-items"] > *')).find(el => el.textContent.includes('Customizations'));
@@ -327,21 +371,30 @@ async function main() {
                     !newChat.classList.contains('bg-sidebar-secondary');
 
       return { step1, step2, step3, step4, step5, all: step1 && step2 && step3 && step4 && step5 };
-    })()`);
+    })()`
+    );
 
     // 6. Close Mods View via clicking sidebar button again
-    await evalInPage(wsUrl, `
+    await evalInPage(
+      wsUrl,
+      `
       document.querySelector('[data-agy-boost-mods-btn="true"]').click()
-    `);
+    `
+    );
     await delay(500);
 
-    const isClosed = await evalInPage(wsUrl, `
+    const isClosed = await evalInPage(
+      wsUrl,
+      `
       document.getElementById('agy-boost-mods-view') === null
-    `);
+    `
+    );
     report.modsViewClosed = Boolean(isClosed);
 
     // Final Flex State & Invariant Check
-    report.finalFlexState = await evalInPage(wsUrl, `(() => {
+    report.finalFlexState = await evalInPage(
+      wsUrl,
+      `(() => {
       const conv = document.querySelector('[data-testid="conversation-view"]');
       const child0 = document.getElementById('child-0-messages');
       const child1 = document.getElementById('child-1-composer');
@@ -353,16 +406,15 @@ async function main() {
         child0Height: child0.clientHeight,
         child1Height: child1.clientHeight,
       };
-    })()`);
-
-    report.noInlineDisplayBlock = (
-      report.finalFlexState.inlineDisplay !== 'block' &&
-      report.finalFlexState.display === 'flex'
+    })()`
     );
+
+    report.noInlineDisplayBlock =
+      report.finalFlexState.inlineDisplay !== "block" && report.finalFlexState.display === "flex";
 
     const flexGrowPreserved = report.finalFlexState.child0Height > 0;
 
-    report.allPassed = (
+    report.allPassed =
       report.sidebarButtonMounted &&
       report.modsViewOpened &&
       report.marketplaceRendered &&
@@ -370,8 +422,7 @@ async function main() {
       Boolean(report.sidebarNavLoop?.all) &&
       report.modsViewClosed &&
       report.noInlineDisplayBlock &&
-      flexGrowPreserved
-    );
+      flexGrowPreserved;
 
     allPassed = report.allPassed;
     console.log(JSON.stringify(report, null, 2));

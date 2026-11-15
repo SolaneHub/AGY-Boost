@@ -14,15 +14,15 @@ AGY Boost is architected from the ground up for maximum speed, minimal memory us
 └──────────────────────────┴──────────────────────────────────────────────────┘
 ```
 
-| Language | Layer | Target | Common Use Case |
-| :--- | :--- | :--- | :--- |
-| **Pure CSS** | Theming | Native DOM | Color palettes, dark/light themes, syntax tokens |
-| **JavaScript / TypeScript** | UI & Controls | Native V8 | Sidebar panels, toolbars, buttons, DOM observers |
-| **AssemblyScript** | Compute (Wasm) | WebAssembly | Fast algorithms using familiar TypeScript syntax |
-| **Go (Golang)** | Daemons / Wasm | OS Process / Wasm | File watchers, local servers, OS integration (<10MB) |
-| **Python** | Automation | Spawned Sidecar | AI tools, data processing, automation scripts |
-| **Rust** | Heavy Compute | WebAssembly | AST parsers, streaming crypto, diffing, vector math |
-| **Zig / C / C++** | Systems (Wasm) | WebAssembly | C libraries, low-level math, audio/graphics |
+| Language                    | Layer          | Target            | Common Use Case                                      |
+| :-------------------------- | :------------- | :---------------- | :--------------------------------------------------- |
+| **Pure CSS**                | Theming        | Native DOM        | Color palettes, dark/light themes, syntax tokens     |
+| **JavaScript / TypeScript** | UI & Controls  | Native V8         | Sidebar panels, toolbars, buttons, DOM observers     |
+| **AssemblyScript**          | Compute (Wasm) | WebAssembly       | Fast algorithms using familiar TypeScript syntax     |
+| **Go (Golang)**             | Daemons / Wasm | OS Process / Wasm | File watchers, local servers, OS integration (<10MB) |
+| **Python**                  | Automation     | Spawned Sidecar   | AI tools, data processing, automation scripts        |
+| **Rust**                    | Heavy Compute  | WebAssembly       | AST parsers, streaming crypto, diffing, vector math  |
+| **Zig / C / C++**           | Systems (Wasm) | WebAssembly       | C libraries, low-level math, audio/graphics          |
 
 ---
 

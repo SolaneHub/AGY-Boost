@@ -141,7 +141,11 @@ export interface ModDaemon {
   /**
    * Spawn a native Go background sidecar with an explicit modId.
    */
-  spawnDaemon(modId: string, binaryPath: string, args?: string[]): Promise<{ ok: boolean; pid?: number }>;
+  spawnDaemon(
+    modId: string,
+    binaryPath: string,
+    args?: string[]
+  ): Promise<{ ok: boolean; pid?: number }>;
 
   /**
    * Terminate the running background daemon (or specific modId).
@@ -164,14 +168,18 @@ export interface HUDOptions {
   position?: HUDPosition;
 }
 
+export type DOMEventHandler = {
+  bivariance(event: Event): unknown;
+}["bivariance"];
+
 export interface ModUI {
   /**
    * Zero-framework DOM element builder matching Antigravity's Willow Design System.
    */
   el<K extends keyof HTMLElementTagNameMap>(
     tag: K,
-    attrs?: Record<string, string | number | boolean | undefined | null | ((e: any) => void)>,
-    children?: (Node | string | null | undefined)[]
+    attrs?: Record<string, string | number | boolean | undefined | null | DOMEventHandler>,
+    children?: Array<Node | string | null | undefined>
   ): HTMLElementTagNameMap[K];
 
   /**

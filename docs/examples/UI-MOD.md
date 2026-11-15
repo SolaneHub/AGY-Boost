@@ -29,13 +29,18 @@ In `index.js`, use the `AGYBoost.ui.el` DOM builder to construct and mount eleme
 // Pure TypeScript / JavaScript UI Mod
 // Injects a native status pill into Antigravity using Willow Design System classes
 
-const statusPill = AGYBoost.ui.el("div", {
-  id: "my-status-pill",
-  class: "fixed bottom-3 right-3 bg-secondary text-secondary-foreground text-xs px-3 py-1.5 rounded-full shadow-md z-50 flex items-center gap-2 border border-border select-none",
-}, [
-  AGYBoost.ui.el("span", { class: "w-2 h-2 rounded-full bg-emerald-500 animate-pulse" }),
-  AGYBoost.ui.el("span", { class: "font-medium" }, ["AGY Boost Native Mod Active"]),
-]);
+const statusPill = AGYBoost.ui.el(
+  "div",
+  {
+    id: "my-status-pill",
+    class:
+      "fixed bottom-3 right-3 bg-secondary text-secondary-foreground text-xs px-3 py-1.5 rounded-full shadow-md z-50 flex items-center gap-2 border border-border select-none",
+  },
+  [
+    AGYBoost.ui.el("span", { class: "w-2 h-2 rounded-full bg-emerald-500 animate-pulse" }),
+    AGYBoost.ui.el("span", { class: "font-medium" }, ["AGY Boost Native Mod Active"]),
+  ]
+);
 
 document.body.appendChild(statusPill);
 
@@ -53,13 +58,13 @@ if (typeof mod !== "undefined" && mod.onDispose) {
 
 Antigravity provides standard Tailwind utility classes that adapt seamlessly to the user's active theme:
 
-| Element | Recommended Tailwind Classes |
-| --- | --- |
-| **Surfaces & Cards** | `bg-card text-card-foreground border border-border rounded-xl` |
-| **Pills & Badges** | `bg-secondary text-secondary-foreground px-2.5 py-1 rounded-full text-xs font-medium` |
-| **Accent Badges** | `bg-primary/10 text-primary px-2 py-0.5 rounded-md text-xs` |
-| **Buttons** | `px-3 py-1.5 rounded-lg text-sm bg-primary text-primary-foreground hover:bg-primary/90 transition-colors` |
-| **Muted Text** | `text-muted-foreground text-xs` |
+| Element              | Recommended Tailwind Classes                                                                              |
+| -------------------- | --------------------------------------------------------------------------------------------------------- |
+| **Surfaces & Cards** | `bg-card text-card-foreground border border-border rounded-xl`                                            |
+| **Pills & Badges**   | `bg-secondary text-secondary-foreground px-2.5 py-1 rounded-full text-xs font-medium`                     |
+| **Accent Badges**    | `bg-primary/10 text-primary px-2 py-0.5 rounded-md text-xs`                                               |
+| **Buttons**          | `px-3 py-1.5 rounded-lg text-sm bg-primary text-primary-foreground hover:bg-primary/90 transition-colors` |
+| **Muted Text**       | `text-muted-foreground text-xs`                                                                           |
 
 ---
 

@@ -27,7 +27,7 @@ describe("Slots & UI Overlay Engine", () => {
   beforeEach(() => {
     // Clear document body between tests
     while (document.body.childNodes.length > 0) {
-      document.body.childNodes[0].remove();
+      document.body.childNodes[0]?.remove();
     }
   });
 
@@ -51,7 +51,11 @@ describe("Slots & UI Overlay Engine", () => {
       assert.ok(defaultSlot.contains(badge));
 
       unmount();
-      assert.equal(document.getElementById("agy-hud-container"), null, "Container should be removed when empty");
+      assert.equal(
+        document.getElementById("agy-hud-container"),
+        null,
+        "Container should be removed when empty"
+      );
       // Idempotency: multiple unmount calls do not throw
       unmount();
       assert.equal(document.getElementById("agy-hud-container"), null);
@@ -162,7 +166,11 @@ describe("Slots & UI Overlay Engine", () => {
       assert.notEqual(convView.style.getPropertyValue("display"), "block");
 
       unmount();
-      assert.equal(document.getElementById("agy-header-dock"), null, "Empty dock should be removed");
+      assert.equal(
+        document.getElementById("agy-header-dock"),
+        null,
+        "Empty dock should be removed"
+      );
     });
 
     test("dynamically promotes element from fallback dock to toolbar when toolbar appears", () => {
@@ -186,7 +194,11 @@ describe("Slots & UI Overlay Engine", () => {
 
       const toolbar = header.querySelector('[data-testid="pane-titlebar-toolbar"]')!;
       assert.ok(toolbar.contains(widget), "Widget should be automatically promoted to toolbar");
-      assert.equal(document.getElementById("agy-header-dock"), null, "Empty dock should be cleaned up");
+      assert.equal(
+        document.getElementById("agy-header-dock"),
+        null,
+        "Empty dock should be cleaned up"
+      );
 
       unmount();
       assert.equal(toolbar.contains(widget), false);
@@ -213,7 +225,11 @@ describe("Slots & UI Overlay Engine", () => {
       const pill = el("button", { id: "test-effort-pill" }, ["⚡ Effort: High"]);
       const unmount = mountComposer(pill);
 
-      assert.equal(pill.parentElement, footerRow, "Pill should be mounted in footerRow next to model selector");
+      assert.equal(
+        pill.parentElement,
+        footerRow,
+        "Pill should be mounted in footerRow next to model selector"
+      );
       assert.equal(pill.getAttribute("data-agy-mounted-slot"), "composer");
 
       // Invariant check
@@ -259,9 +275,12 @@ describe("Slots & UI Overlay Engine", () => {
   });
 
   describe("registerShortcut", () => {
+    const dispatchDocEvent = (e: unknown) =>
+      (document as unknown as { dispatchEvent: (ev: unknown) => boolean }).dispatchEvent(e);
+
     test("registers shortcut and triggers handler with platform-normalized modifier", () => {
       let triggered = 0;
-      let lastEvent: any = null;
+      let lastEvent: KeyboardEvent | null = null;
 
       const unregister = registerShortcut("Cmd+Shift+M", (e) => {
         triggered++;
@@ -278,13 +297,13 @@ describe("Slots & UI Overlay Engine", () => {
         key: "m",
         code: "KeyM",
       };
-      (document as any).dispatchEvent(matchEvent);
+      dispatchDocEvent(matchEvent);
 
       assert.equal(triggered, 1);
       assert.equal(lastEvent, matchEvent);
 
       // Non-matching event (missing Shift)
-      (document as any).dispatchEvent({
+      dispatchDocEvent({
         type: "keydown",
         metaKey: onMac,
         ctrlKey: !onMac,
@@ -295,7 +314,7 @@ describe("Slots & UI Overlay Engine", () => {
       assert.equal(triggered, 1, "Should not trigger without Shift");
 
       // Non-matching event (different key)
-      (document as any).dispatchEvent({
+      dispatchDocEvent({
         type: "keydown",
         metaKey: onMac,
         ctrlKey: !onMac,
@@ -307,7 +326,7 @@ describe("Slots & UI Overlay Engine", () => {
 
       // Unregister and verify no more events trigger
       unregister();
-      (document as any).dispatchEvent(matchEvent);
+      dispatchDocEvent(matchEvent);
       assert.equal(triggered, 1, "Should not trigger after unregistering");
       unregister(); // Idempotency check
     });
@@ -323,7 +342,7 @@ describe("Slots & UI Overlay Engine", () => {
         ctrlCount++;
       });
 
-      (document as any).dispatchEvent({
+      dispatchDocEvent({
         type: "keydown",
         altKey: true,
         ctrlKey: false,
@@ -334,7 +353,7 @@ describe("Slots & UI Overlay Engine", () => {
       assert.equal(altCount, 1);
       assert.equal(ctrlCount, 0);
 
-      (document as any).dispatchEvent({
+      dispatchDocEvent({
         type: "keydown",
         ctrlKey: true,
         shiftKey: true,
@@ -369,7 +388,7 @@ describe("Slots & UI Overlay Engine", () => {
       });
 
       // Plus key
-      (document as any).dispatchEvent({
+      dispatchDocEvent({
         type: "keydown",
         ctrlKey: true,
         shiftKey: false,
@@ -381,7 +400,7 @@ describe("Slots & UI Overlay Engine", () => {
       assert.equal(plusCount, 1, "Ctrl++ should match plus key");
 
       // Space key
-      (document as any).dispatchEvent({
+      dispatchDocEvent({
         type: "keydown",
         altKey: true,
         ctrlKey: false,
@@ -393,7 +412,7 @@ describe("Slots & UI Overlay Engine", () => {
       assert.equal(spaceCount, 1, "Alt+Space should match spacebar");
 
       // Esc key
-      (document as any).dispatchEvent({
+      dispatchDocEvent({
         type: "keydown",
         ctrlKey: true,
         shiftKey: false,
@@ -405,7 +424,7 @@ describe("Slots & UI Overlay Engine", () => {
       assert.equal(escCount, 1, "Ctrl+Esc should match Escape");
 
       // Up arrow key
-      (document as any).dispatchEvent({
+      dispatchDocEvent({
         type: "keydown",
         ctrlKey: true,
         shiftKey: false,
@@ -438,7 +457,14 @@ describe("Slots & UI Overlay Engine", () => {
       // Empty key returns false
       assert.equal(
         matchesKeyboardEvent(
-          { type: "keydown", metaKey: true, ctrlKey: false, shiftKey: false, altKey: false, key: "" } as any,
+          {
+            type: "keydown",
+            metaKey: true,
+            ctrlKey: false,
+            shiftKey: false,
+            altKey: false,
+            key: "",
+          } as unknown as KeyboardEvent,
           { ctrl: false, meta: true, shift: false, alt: false, key: "" }
         ),
         false
@@ -504,7 +530,11 @@ describe("Slots & UI Overlay Engine", () => {
       const msg2 = el("div", { id: "conv2-msg" });
       conv2.appendChild(msg2);
 
-      assert.equal(observedNodes.length, 2, "Should observe messages in new conversation view after switch");
+      assert.equal(
+        observedNodes.length,
+        2,
+        "Should observe messages in new conversation view after switch"
+      );
       assert.equal(observedNodes[1], msg2);
 
       disconnect();

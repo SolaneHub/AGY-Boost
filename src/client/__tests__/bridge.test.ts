@@ -2,25 +2,31 @@ import { test, describe, beforeEach, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import { DaemonBridge } from "../bridge/daemon.js";
 
+interface GlobalTokenScope {
+  __AGY_TOKEN__?: string;
+}
+
+const tokenScope = globalThis as unknown as GlobalTokenScope;
+
 describe("DaemonBridge", () => {
   const originalFetch = globalThis.fetch;
-  let lastRequest: { url: string; init?: RequestInit } | null = null;
+  let lastRequest: { url: string; init?: RequestInit | undefined } | null = null;
   let mockFetchHandler: (url: string, init?: RequestInit) => Promise<Response>;
 
   beforeEach(() => {
     lastRequest = null;
     mockFetchHandler = async () => new Response("ok", { status: 200 });
-    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+    globalThis.fetch = (async (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
       const url = typeof input === "string" ? input : input.toString();
       lastRequest = { url, init };
       return mockFetchHandler(url, init);
-    }) as any;
-    delete (globalThis as any).__AGY_TOKEN__;
+    }) as typeof fetch;
+    delete tokenScope.__AGY_TOKEN__;
   });
 
   afterEach(() => {
     globalThis.fetch = originalFetch;
-    delete (globalThis as any).__AGY_TOKEN__;
+    delete tokenScope.__AGY_TOKEN__;
   });
 
   test("isHealthy returns true on 200 OK and calls /health", async () => {
@@ -48,7 +54,7 @@ describe("DaemonBridge", () => {
   });
 
   test("getMods calls /mods and includes X-AGY-Token header when configured", async () => {
-    (globalThis as any).__AGY_TOKEN__ = "secret-token-xyz";
+    tokenScope.__AGY_TOKEN__ = "secret-token-xyz";
 
     const dummyMods = [
       {
@@ -79,7 +85,7 @@ describe("DaemonBridge", () => {
   });
 
   test("toggleMod sends POST to /mods/toggle with JSON body and auth header", async () => {
-    (globalThis as any).__AGY_TOKEN__ = "token-123";
+    tokenScope.__AGY_TOKEN__ = "token-123";
 
     mockFetchHandler = async (url, init) => {
       assert.match(url, /\/mods\/toggle$/);
@@ -134,7 +140,7 @@ describe("DaemonBridge", () => {
   });
 
   test("openModsFolder sends POST to /mods/open-folder and returns ok and path", async () => {
-    (globalThis as any).__AGY_TOKEN__ = "test-token-open";
+    tokenScope.__AGY_TOKEN__ = "test-token-open";
 
     mockFetchHandler = async (url, init) => {
       assert.match(url, /\/mods\/open-folder$/);

@@ -94,5 +94,3 @@ func PackAsar(files map[string][]byte, destPath string) error {
 
 	return nil
 }
-
-

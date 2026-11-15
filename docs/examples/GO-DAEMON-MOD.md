@@ -3,6 +3,7 @@
 This guide demonstrates how to build a background automation and system-level mod for Google Antigravity using **Go (Golang)** as a standalone sidecar.
 
 Go is ideal for:
+
 - Low-latency local file system watching (`fsnotify`)
 - Git worktree indexing and repository scanning
 - System automation, process management, and local daemon services
@@ -64,6 +65,7 @@ func main() {
 ```
 
 Compile the Go sidecar:
+
 ```bash
 go build -o daemon daemon.go
 ```

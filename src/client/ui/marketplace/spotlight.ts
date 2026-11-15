@@ -18,42 +18,48 @@ export const SPOTLIGHT_MODS_METADATA: SpotlightMetadata[] = [
     left: "12%",
     top: "35%",
     rotate: "-4deg",
-    swayAnimation: "7.2s cubic-bezier(0.37, 0, 0.63, 1) -1.3s infinite alternate none running agy-spotlight-sway",
+    swayAnimation:
+      "7.2s cubic-bezier(0.37, 0, 0.63, 1) -1.3s infinite alternate none running agy-spotlight-sway",
   },
   {
     id: "stream-accel",
     left: "27%",
     top: "66%",
     rotate: "3deg",
-    swayAnimation: "8.6s cubic-bezier(0.37, 0, 0.63, 1) -4.1s infinite alternate none running agy-spotlight-sway",
+    swayAnimation:
+      "8.6s cubic-bezier(0.37, 0, 0.63, 1) -4.1s infinite alternate none running agy-spotlight-sway",
   },
   {
     id: "context-compressor",
     left: "42%",
     top: "32%",
     rotate: "-2deg",
-    swayAnimation: "6.4s cubic-bezier(0.37, 0, 0.63, 1) -2.6s infinite alternate none running agy-spotlight-sway",
+    swayAnimation:
+      "6.4s cubic-bezier(0.37, 0, 0.63, 1) -2.6s infinite alternate none running agy-spotlight-sway",
   },
   {
     id: "theme-oled",
     left: "58%",
     top: "64%",
     rotate: "0deg",
-    swayAnimation: "9.4s cubic-bezier(0.37, 0, 0.63, 1) -6s infinite alternate none running agy-spotlight-sway",
+    swayAnimation:
+      "9.4s cubic-bezier(0.37, 0, 0.63, 1) -6s infinite alternate none running agy-spotlight-sway",
   },
   {
     id: "local-llm-bridge",
     left: "73%",
     top: "34%",
     rotate: "-3deg",
-    swayAnimation: "7.8s cubic-bezier(0.37, 0, 0.63, 1) -0.4s infinite alternate none running agy-spotlight-sway",
+    swayAnimation:
+      "7.8s cubic-bezier(0.37, 0, 0.63, 1) -0.4s infinite alternate none running agy-spotlight-sway",
   },
   {
     id: "git-worktree",
     left: "88%",
     top: "63%",
     rotate: "2deg",
-    swayAnimation: "8.2s cubic-bezier(0.37, 0, 0.63, 1) -3.3s infinite alternate none running agy-spotlight-sway",
+    swayAnimation:
+      "8.2s cubic-bezier(0.37, 0, 0.63, 1) -3.3s infinite alternate none running agy-spotlight-sway",
   },
 ];
 
@@ -86,7 +92,6 @@ export const SPOTLIGHT_STYLE = `
 let activeFeaturedIndex = 0;
 let spotlightTimer: ReturnType<typeof setInterval> | null = null;
 let spotlightPaused = false;
-let currentUpdateFn: (() => void) | null = null;
 let visibilityListenerRegistered = false;
 
 export function stopSpotlightTimer(): void {
@@ -98,7 +103,6 @@ export function stopSpotlightTimer(): void {
 
 export function startSpotlightTimer(updateFn: () => void): void {
   stopSpotlightTimer();
-  currentUpdateFn = updateFn;
   spotlightPaused = false;
 
   setupVisibilityListener();
@@ -128,7 +132,8 @@ function createSpotlightRingSvg(): SVGSVGElement {
   const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
   svg.setAttribute("aria-hidden", "true");
   svg.setAttribute("class", "agy-spotlight-ring-svg pointer-events-none overflow-visible");
-  svg.style.cssText = "position: absolute; inset: 0px; width: 100%; height: 100%; animation: 240ms ease-out 0s 1 normal none running agy-spotlight-ring-in;";
+  svg.style.cssText =
+    "position: absolute; inset: 0px; width: 100%; height: 100%; animation: 240ms ease-out 0s 1 normal none running agy-spotlight-ring-in;";
 
   const rectBg = document.createElementNS("http://www.w3.org/2000/svg", "rect");
   rectBg.setAttribute("x", "0");
@@ -192,12 +197,14 @@ export function renderSpotlightHost(
   const lightBg = el("div", {
     "aria-hidden": "true",
     class: "absolute inset-0 -z-10 dark:hidden",
-    style: "background: radial-gradient(60% 75% at 15% 40%, rgba(91, 140, 255, 0.3), rgba(91, 140, 255, 0) 70%), radial-gradient(55% 65% at 90% 90%, rgba(47, 75, 230, 0.18), rgba(47, 75, 230, 0) 70%), rgb(243, 245, 252);",
+    style:
+      "background: radial-gradient(60% 75% at 15% 40%, rgba(91, 140, 255, 0.3), rgba(91, 140, 255, 0) 70%), radial-gradient(55% 65% at 90% 90%, rgba(47, 75, 230, 0.18), rgba(47, 75, 230, 0) 70%), rgb(243, 245, 252);",
   });
   const darkBg = el("div", {
     "aria-hidden": "true",
     class: "absolute inset-0 -z-10 hidden dark:block",
-    style: "background: radial-gradient(60% 75% at 15% 40%, rgba(91, 140, 255, 0.5), rgba(91, 140, 255, 0) 70%), radial-gradient(55% 65% at 90% 90%, rgba(47, 75, 230, 0.5), rgba(47, 75, 230, 0) 70%), rgb(17, 22, 40);",
+    style:
+      "background: radial-gradient(60% 75% at 15% 40%, rgba(91, 140, 255, 0.5), rgba(91, 140, 255, 0) 70%), radial-gradient(55% 65% at 90% 90%, rgba(47, 75, 230, 0.5), rgba(47, 75, 230, 0) 70%), rgb(17, 22, 40);",
   });
   stage.appendChild(lightBg);
   stage.appendChild(darkBg);
@@ -213,7 +220,9 @@ export function renderSpotlightHost(
       name: catalogItem?.name ?? meta.id,
       description: catalogItem?.description ?? "",
       iconBg: catalogItem?.iconBg ?? "",
-      iconSvg: catalogItem?.iconSvg ? catalogItem.iconSvg.replace(/width="24"\s+height="24"/, 'width="28" height="28"') : "",
+      iconSvg: catalogItem?.iconSvg
+        ? catalogItem.iconSvg.replace(/width="24"\s+height="24"/, 'width="28" height="28"')
+        : "",
     };
   });
 
@@ -273,12 +282,14 @@ export function renderSpotlightHost(
     class: "agy-spotlight-panel",
   });
 
-  const eyebrow = el("div", {
-    "data-testid": "featured-carousel-eyebrow",
-    class: "h-5 flex items-center min-w-0 mb-1.5",
-  }, [
-    el("span", { class: "text-sm font-medium text-muted-foreground truncate" }, ["Featured"]),
-  ]);
+  const eyebrow = el(
+    "div",
+    {
+      "data-testid": "featured-carousel-eyebrow",
+      class: "h-5 flex items-center min-w-0 mb-1.5",
+    },
+    [el("span", { class: "text-sm font-medium text-muted-foreground truncate" }, ["Featured"])]
+  );
   panel.appendChild(eyebrow);
 
   const panelGrid = el("div", { class: "grid grid-cols-1 items-start min-w-0" });
@@ -294,23 +305,32 @@ export function renderSpotlightHost(
         : "opacity: 0; visibility: hidden; pointer-events: none; transition: opacity 140ms ease-in, visibility linear 140ms;",
     });
 
-    const titleH3 = el("h3", {
-      class: "text-2xl leading-tight font-semibold tracking-tight text-foreground m-0 truncate cursor-pointer hover:underline",
-      "data-testid": isAct ? "featured-carousel-headline" : undefined,
-      onclick: () => {
-        if (onOpenDetail) {
-          onOpenDetail(mod.id);
-        } else {
-          onNavigateToInstalled();
-        }
+    const titleH3 = el(
+      "h3",
+      {
+        class:
+          "text-2xl leading-tight font-semibold tracking-tight text-foreground m-0 truncate cursor-pointer hover:underline",
+        "data-testid": isAct ? "featured-carousel-headline" : undefined,
+        onclick: () => {
+          if (onOpenDetail) {
+            onOpenDetail(mod.id);
+          } else {
+            onNavigateToInstalled();
+          }
+        },
       },
-    }, [mod.name]);
+      [mod.name]
+    );
 
-    const descP = el("p", {
-      class: "mt-2.5 text-sm leading-relaxed text-muted-foreground m-0 line-clamp-3",
-      title: mod.description,
-      "data-testid": isAct ? "featured-carousel-description" : undefined,
-    }, [mod.description]);
+    const descP = el(
+      "p",
+      {
+        class: "mt-2.5 text-sm leading-relaxed text-muted-foreground m-0 line-clamp-3",
+        title: mod.description,
+        "data-testid": isAct ? "featured-carousel-description" : undefined,
+      },
+      [mod.description]
+    );
 
     const actionsDiv = el("div", {
       class: "mt-4 flex items-center gap-2",
@@ -324,7 +344,8 @@ export function renderSpotlightHost(
 
     const addBtn = el("button", {
       type: "button",
-      class: "agy-button agy-button-sm inline-flex items-center font-medium transition-colors select-none outline-none cursor-pointer justify-center disabled:opacity-50 bg-primary text-primary-foreground hover:opacity-90 shadow-sm border-none h-7 text-base rounded-md gap-1.5 pl-2 pr-3 focus-visible:ring-2 focus-visible:ring-primary",
+      class:
+        "agy-button agy-button-sm inline-flex items-center font-medium transition-colors select-none outline-none cursor-pointer justify-center disabled:opacity-50 bg-primary text-primary-foreground hover:opacity-90 shadow-sm border-none h-7 text-base rounded-md gap-1.5 pl-2 pr-3 focus-visible:ring-2 focus-visible:ring-primary",
       "aria-label": `Add ${mod.name}`,
       tabindex: isAct ? "0" : "-1",
       onclick: () => {
@@ -334,18 +355,23 @@ export function renderSpotlightHost(
     addBtn.innerHTML = `<span class="shrink-0 flex items-center"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 -960 960 960" fill="currentColor" class="-mr-1"><path d="M450-450H250q-12.75,0-21.37-8.63T220-480.01t8.62-21.37T250-510H450V-710q0-12.75 8.63-21.37T480.01-740t21.37,8.62T510-710v200H710q12.75,0 21.37,8.63T740-479.99t-8.62,21.37T710-450H510v200q0,12.75-8.63,21.37T479.99-220t-21.37-8.62T450-250V-450Z"/></svg></span>Add`;
     addBtnSpan.appendChild(addBtn);
 
-    const detailsBtn = el("button", {
-      type: "button",
-      class: "agy-button agy-button-sm inline-flex items-center font-medium transition-colors select-none outline-none cursor-pointer justify-center disabled:opacity-50 bg-secondary text-secondary-foreground hover:text-foreground border-none h-7 text-base rounded-md gap-1.5 px-2.5 no-underline focus-visible:ring-2 focus-visible:ring-primary",
-      tabindex: isAct ? "0" : "-1",
-      onclick: () => {
-        if (onOpenDetail) {
-          onOpenDetail(mod.id);
-        } else {
-          onNavigateToInstalled();
-        }
+    const detailsBtn = el(
+      "button",
+      {
+        type: "button",
+        class:
+          "agy-button agy-button-sm inline-flex items-center font-medium transition-colors select-none outline-none cursor-pointer justify-center disabled:opacity-50 bg-secondary text-secondary-foreground hover:text-foreground border-none h-7 text-base rounded-md gap-1.5 px-2.5 no-underline focus-visible:ring-2 focus-visible:ring-primary",
+        tabindex: isAct ? "0" : "-1",
+        onclick: () => {
+          if (onOpenDetail) {
+            onOpenDetail(mod.id);
+          } else {
+            onNavigateToInstalled();
+          }
+        },
       },
-    }, ["Details"]);
+      ["Details"]
+    );
 
     actionsDiv.appendChild(addBtnSpan);
     actionsDiv.appendChild(detailsBtn);
@@ -424,9 +450,11 @@ export function renderSpotlightHost(
         else primarySpan.removeAttribute("data-testid");
       }
 
-      const addBtn = panelCard.querySelector<HTMLButtonElement>('[data-testid="featured-carousel-primary-action"] button, .min-h-7 button');
+      const addBtn = panelCard.querySelector<HTMLButtonElement>(
+        '[data-testid="featured-carousel-primary-action"] button, .min-h-7 button'
+      );
       if (addBtn) addBtn.setAttribute("tabindex", isAct ? "0" : "-1");
-      const detailsBtn = panelCard.querySelector<HTMLButtonElement>('.mt-4 > button');
+      const detailsBtn = panelCard.querySelector<HTMLButtonElement>(".mt-4 > button");
       if (detailsBtn) detailsBtn.setAttribute("tabindex", isAct ? "0" : "-1");
     });
 

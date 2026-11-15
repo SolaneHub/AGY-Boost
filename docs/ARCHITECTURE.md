@@ -7,6 +7,7 @@ AGY Boost is a 100% native, ultra-lightweight modding platform for Google Antigr
 ## 1. The Shape of the Host
 
 Antigravity's `app.asar` is a lightweight Electron launcher:
+
 - It spawns a local `language_server` on a loopback port.
 - It opens a `BrowserWindow` loading `https://127.0.0.1:<port>/`.
 - There are no static HTML/UI files on disk to modify directly; all interface customizations must be injected cleanly into the renderer.
@@ -25,12 +26,14 @@ src/host/            # Cross-platform Antigravity discovery (macOS, Windows, Lin
 ```
 
 ### The Native Patcher
+
 1. **Reversible Backup**: Automatically renames `resources/app.asar` to `resources/_app.asar`.
 2. **Native ASAR Generation**: In `src/patcher/asar.go`, AGY Boost constructs valid Electron ASAR archives directly in Go, writing a minimal bootstrap `index.js` and `package.json`.
 3. **Session Interception**: When Electron boots, the bootstrap hooks `app.on("session-created")` to register the AGY Boost runtime preload script and relaxes Content Security Policy (CSP) for local daemon communication.
 4. **Transparent Delegation**: The bootstrap immediately delegates to Antigravity's original entry point (`_app.asar/dist/main.js`). Antigravity's native updates, models, and authentication function completely untouched.
 
 ### The Background Daemon
+
 - Starts an HTTP/WebSocket server on `127.0.0.1:42042`.
 - Tracks active mods, watches the mods directory, and provides an IPC channel for mods.
 - Operates under a strict memory footprint limit of **<10MB RAM**.
@@ -40,6 +43,7 @@ src/host/            # Cross-platform Antigravity discovery (macOS, Windows, Lin
 ## 3. Pure TypeScript In-Client Runtime (`src/client/`)
 
 The client runtime is injected directly into Antigravity's renderer:
+
 - **Zero Frameworks**: No React, Vue, or heavy dependencies in the injection bundle. The compiled `runtime.js` is bundled via esbuild (`--minify`, IIFE) into an optimized footprint of **~44 KB** uncompressed (~11.6 KB gzipped) containing the complete Willow UI engine, theme manager, daemon bridge, and full-featured marketplace.
 - **Willow Design System Integration**: Mod UI elements and the **AGY Boost Mods** navigation button reuse Antigravity's native Tailwind classes (`bg-card`, `text-card-foreground`, `hover:bg-muted/50`).
 - **Layout Safety Invariant**: The runtime strictly respects the host flexbox layout. Elements hiding siblings save their display state and restore to `""` (empty string) to prevent any collapse of `[data-testid="conversation-view"]`.
@@ -53,6 +57,7 @@ The client runtime is injected directly into Antigravity's renderer:
 ## 4. Local Daemon IPC & Security Architecture
 
 The background daemon operates as a secure local sidecar for the client runtime:
+
 - **Loopback Binding**: Listens strictly on `127.0.0.1:42042`. It does not bind to external network interfaces (`0.0.0.0`).
 - **CORS Origin Restriction**: Requests with an `Origin` header are validated against an allowlist permitting only local origins (`http://127.0.0.1:*`, `http://localhost:*`, and `https://` variants used by Antigravity's internal language server). Arbitrary web origins are rejected with `403 Forbidden`.
 - **Token-Based Authentication**:
@@ -130,6 +135,7 @@ AGY Boost uses a robust, non-destructive patching model that guarantees safety a
 ```
 
 ### Key Safety Invariants:
+
 1. **Idempotent**: Re-running `agy-boost patch` when already patched simply refreshes the runtime bundle and bootstrap without corrupting or doubly-wrapping `_app.asar`.
 2. **Stale Backup Trap Prevention**: When Antigravity updates itself, Electron's updater overwrites `app.asar` with fresh stock binaries. AGY Boost checks `IsBootstrapAsar(app.asar)`. If the current `app.asar` is official, any existing `_app.asar` is recognized as a previous version backup and replaced with the new official release before re-patching.
 3. **Atomic File Operations**: All ASAR archive replacements write to a temporary file (`.tmp`) first and atomically rename into place, preventing corrupt state on unexpected crashes or power interruptions.
@@ -140,6 +146,7 @@ AGY Boost uses a robust, non-destructive patching model that guarantees safety a
 ## 6. WebAssembly (Wasm) Compute Tier
 
 Compute-heavy tasks (AST parsing, vector calculations, matrix operations) run in native WebAssembly:
+
 - `AGYBoost.wasm.load()` supports direct byte instantiation and streaming compilation (`WebAssembly.instantiateStreaming`).
 - Wasm modules execute at raw near-native speed directly inside V8 with zero JS bridge overhead.
 
@@ -148,6 +155,7 @@ Compute-heavy tasks (AST parsing, vector calculations, matrix operations) run in
 ## 7. Storage & Isolation
 
 User data and mods are strictly decoupled from the Antigravity application directory:
+
 - **macOS**: `~/Library/Application Support/AGYBoost/mods/`
 - **Windows**: `%APPDATA%\AGYBoost\mods\`
 - **Linux**: `~/.config/AGYBoost/mods/` (with fallback to `~/.config/agy-boost/mods/` if legacy directory exists)

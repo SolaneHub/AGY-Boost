@@ -4,10 +4,34 @@
 
 return (function () {
   const EFFORT_LEVELS = [
-    { name: "Low", value: 0.2, color: "#10b981", bg: "rgba(16, 185, 129, 0.15)", border: "rgba(16, 185, 129, 0.3)" },
-    { name: "Medium", value: 0.5, color: "#0ea5e9", bg: "rgba(14, 165, 233, 0.15)", border: "rgba(14, 165, 233, 0.3)" },
-    { name: "High", value: 0.8, color: "#f59e0b", bg: "rgba(245, 158, 11, 0.15)", border: "rgba(245, 158, 11, 0.3)" },
-    { name: "Max", value: 1.0, color: "#ec4899", bg: "rgba(236, 72, 153, 0.15)", border: "rgba(236, 72, 153, 0.3)" },
+    {
+      name: "Low",
+      value: 0.2,
+      color: "#10b981",
+      bg: "rgba(16, 185, 129, 0.15)",
+      border: "rgba(16, 185, 129, 0.3)",
+    },
+    {
+      name: "Medium",
+      value: 0.5,
+      color: "#0ea5e9",
+      bg: "rgba(14, 165, 233, 0.15)",
+      border: "rgba(14, 165, 233, 0.3)",
+    },
+    {
+      name: "High",
+      value: 0.8,
+      color: "#f59e0b",
+      bg: "rgba(245, 158, 11, 0.15)",
+      border: "rgba(245, 158, 11, 0.3)",
+    },
+    {
+      name: "Max",
+      value: 1.0,
+      color: "#ec4899",
+      bg: "rgba(236, 72, 153, 0.15)",
+      border: "rgba(236, 72, 153, 0.3)",
+    },
   ];
 
   const STORAGE_KEY = "agy_effort_level";
@@ -20,7 +44,9 @@ return (function () {
         if (saved) memoryLevel = saved;
       }
     } catch {}
-    const idx = EFFORT_LEVELS.findIndex((l) => l.name.toLowerCase() === (memoryLevel || "high").toLowerCase());
+    const idx = EFFORT_LEVELS.findIndex(
+      (l) => l.name.toLowerCase() === (memoryLevel || "high").toLowerCase()
+    );
     return idx >= 0 ? idx : 2;
   }
 
@@ -32,9 +58,10 @@ return (function () {
       }
     } catch {}
     try {
-      const evt = typeof CustomEvent !== "undefined"
-        ? new CustomEvent("agy:effort-changed", { detail: EFFORT_LEVELS[idx] })
-        : { type: "agy:effort-changed", detail: EFFORT_LEVELS[idx] };
+      const evt =
+        typeof CustomEvent !== "undefined"
+          ? new CustomEvent("agy:effort-changed", { detail: EFFORT_LEVELS[idx] })
+          : { type: "agy:effort-changed", detail: EFFORT_LEVELS[idx] };
       window.dispatchEvent(evt);
     } catch {}
   }
@@ -183,15 +210,19 @@ return (function () {
     function findComposerTarget() {
       const modelTrigger = document.querySelector('[data-testid="model-selector-trigger"]');
       if (modelTrigger) {
-        return modelTrigger.closest(".no-focus-agent-input")?.parentElement || modelTrigger.parentElement;
+        return (
+          modelTrigger.closest(".no-focus-agent-input")?.parentElement || modelTrigger.parentElement
+        );
       }
       const permTrigger = document.querySelector('[data-testid="permissions-selector-trigger"]');
       if (permTrigger?.parentElement) {
         return permTrigger.parentElement;
       }
-      return document.querySelector('[data-agent-composer-root]') ||
-             document.querySelector('.agy-composer-footer') ||
-             document.querySelector('[data-testid="agent-input-box"]');
+      return (
+        document.querySelector("[data-agent-composer-root]") ||
+        document.querySelector(".agy-composer-footer") ||
+        document.querySelector('[data-testid="agent-input-box"]')
+      );
     }
 
     function attachComposerFallback() {
@@ -204,7 +235,10 @@ return (function () {
     attachComposerFallback();
 
     if (typeof MutationObserver !== "undefined") {
-      const conv = document.querySelector('[data-testid="conversation-view"]') || document.body || document.documentElement;
+      const conv =
+        document.querySelector('[data-testid="conversation-view"]') ||
+        document.body ||
+        document.documentElement;
       if (conv) {
         const obs = new MutationObserver(() => attachComposerFallback());
         obs.observe(conv, { childList: true, subtree: true });
@@ -212,8 +246,6 @@ return (function () {
       }
     }
   }
-
-
 
   return () => {
     for (const fn of cleanups) {
@@ -223,9 +255,11 @@ return (function () {
     }
     // Defensive sweep: remove any leftover buttons for this mod
     try {
-      const leftovers = document.querySelectorAll('[data-agy-mod-id="effort-optimizer"], [data-agy-effort-optimizer="true"]');
-      for (let i = 0; i < leftovers.length; i++) {
-        leftovers[i].remove();
+      const leftovers = document.querySelectorAll(
+        '[data-agy-mod-id="effort-optimizer"], [data-agy-effort-optimizer="true"]'
+      );
+      for (const leftover of leftovers) {
+        leftover.remove();
       }
     } catch {}
   };

@@ -8,16 +8,25 @@ export type CleanupFn = () => void;
 
 export interface ModScriptContext {
   manifest: ModInfo;
-  wasm: any;
+  wasm: unknown;
   daemon: DaemonBridge;
-  ui: any;
+  ui: unknown;
   cleanup: (fn: CleanupFn) => void;
   onDispose: (fn: CleanupFn) => void;
 }
 
-const globalObj = globalThis as any;
+interface AGYGlobalContext {
+  __AGY_ACTIVE_MOD_CLEANUPS__?: Map<string, CleanupFn[]>;
+  AGYBoost?: {
+    wasm?: unknown;
+    ui?: unknown;
+  };
+}
+
+const globalObj = globalThis as unknown as AGYGlobalContext;
 const activeModCleanups: Map<string, CleanupFn[]> =
-  globalObj.__AGY_ACTIVE_MOD_CLEANUPS__ || (globalObj.__AGY_ACTIVE_MOD_CLEANUPS__ = new Map<string, CleanupFn[]>());
+  globalObj.__AGY_ACTIVE_MOD_CLEANUPS__ ||
+  (globalObj.__AGY_ACTIVE_MOD_CLEANUPS__ = new Map<string, CleanupFn[]>());
 
 /**
  * Unloads and executes all registered cleanup callbacks for a specific mod.
@@ -37,9 +46,9 @@ export function unloadModScript(modId: string): void {
   if (typeof document !== "undefined") {
     try {
       const leftovers = document.querySelectorAll(`[data-agy-mod-id="${modId}"]`);
-      for (let i = 0; i < leftovers.length; i++) {
-        leftovers[i].setAttribute("data-agy-unmounted", "true");
-        leftovers[i].remove();
+      for (const item of leftovers) {
+        item.setAttribute("data-agy-unmounted", "true");
+        item.remove();
       }
     } catch {}
   }
@@ -66,7 +75,7 @@ export function isModScriptActive(modId: string): boolean {
  * Automatically tracks cleanups and unmounts scripts when mods are disabled.
  */
 export async function syncModScripts(bridge: DaemonBridge): Promise<void> {
-  let mods: ModInfo[] = [];
+  let mods: ModInfo[];
   try {
     mods = await bridge.getMods();
   } catch {
@@ -82,7 +91,7 @@ export async function syncModScripts(bridge: DaemonBridge): Promise<void> {
     // If script is already executing and tracked, skip re-execution
     if (activeModCleanups.has(mod.id)) continue;
 
-    let code: string | null = null;
+    let code: string | null;
     try {
       code = await bridge.getModFile(mod.id, mod.main);
     } catch {
@@ -98,7 +107,7 @@ export async function syncModScripts(bridge: DaemonBridge): Promise<void> {
       }
     };
 
-    const agy = (globalThis as any).AGYBoost;
+    const agy = globalObj.AGYBoost;
     const context: ModScriptContext = {
       manifest: mod,
       wasm: agy?.wasm,
@@ -115,8 +124,8 @@ export async function syncModScripts(bridge: DaemonBridge): Promise<void> {
         sanitizedCode = sanitizedCode.replace(/^\s*export\s+default\s+/m, "module.exports = ");
       }
 
-      const modExports: any = {};
-      const moduleObj = { exports: modExports };
+      const modExports: Record<string, unknown> = {};
+      const moduleObj: { exports: unknown } = { exports: modExports };
 
       const runner = new Function(
         "context",
@@ -132,18 +141,31 @@ export async function syncModScripts(bridge: DaemonBridge): Promise<void> {
 
       // 1. If module.exports was assigned an entrypoint function, execute it
       if (typeof moduleObj.exports === "function") {
-        const exportedResult = await moduleObj.exports(context, agy);
+        const exportedFn = moduleObj.exports as (ctx: unknown, a: unknown) => unknown;
+        const exportedResult = await exportedFn(context, agy);
         if (typeof exportedResult === "function") {
-          cleanups.push(exportedResult);
-        } else if (exportedResult && typeof exportedResult.unmount === "function") {
-          cleanups.push(() => exportedResult.unmount());
-        } else if (exportedResult && typeof exportedResult.cleanup === "function") {
-          cleanups.push(() => exportedResult.cleanup());
+          cleanups.push(exportedResult as CleanupFn);
+        } else if (
+          exportedResult &&
+          typeof (exportedResult as { unmount?: unknown }).unmount === "function"
+        ) {
+          cleanups.push(() => (exportedResult as { unmount: () => void }).unmount());
+        } else if (
+          exportedResult &&
+          typeof (exportedResult as { cleanup?: unknown }).cleanup === "function"
+        ) {
+          cleanups.push(() => (exportedResult as { cleanup: () => void }).cleanup());
         }
-      } else if (moduleObj.exports && typeof moduleObj.exports.unmount === "function") {
-        cleanups.push(() => moduleObj.exports.unmount());
-      } else if (moduleObj.exports && typeof moduleObj.exports.cleanup === "function") {
-        cleanups.push(() => moduleObj.exports.cleanup());
+      } else if (
+        moduleObj.exports &&
+        typeof (moduleObj.exports as { unmount?: unknown }).unmount === "function"
+      ) {
+        cleanups.push(() => (moduleObj.exports as { unmount: () => void }).unmount());
+      } else if (
+        moduleObj.exports &&
+        typeof (moduleObj.exports as { cleanup?: unknown }).cleanup === "function"
+      ) {
+        cleanups.push(() => (moduleObj.exports as { cleanup: () => void }).cleanup());
       }
 
       // 2. If the script directly returned a cleanup function or unmount object

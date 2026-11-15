@@ -167,4 +167,3 @@ func TestStaleBackupTrapOnHostUpdate(t *testing.T) {
 		t.Errorf("restored content mismatch: got %s, want %s", string(restoredContent), string(v2Content))
 	}
 }
-

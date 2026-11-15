@@ -45,19 +45,25 @@ function getSidebarNavItems(): {
   const modsBtn = document.querySelector<HTMLButtonElement>(`[${BUTTON_ATTR}]`);
   const autoBtn = document.querySelector<HTMLElement>('[data-testid="automations-button"]');
   const newChatBtn = document.querySelector<HTMLElement>('[data-testid="new-conversation-button"]');
-  const navContainer = document.querySelector<HTMLElement>('[data-testid="sidebar-navigation-items"]');
+  const navContainer = document.querySelector<HTMLElement>(
+    '[data-testid="sidebar-navigation-items"]'
+  );
   const navChildren = navContainer ? (Array.from(navContainer.children) as HTMLElement[]) : [];
-  const custBtn = navChildren.find((el) => {
-    if (el === modsBtn || el === autoBtn || el === newChatBtn) return false;
-    const text = el.textContent ? el.textContent.trim() : "";
-    const href = el.getAttribute("href");
-    return text === "Customizations" || href === "/customizations";
-  }) || null;
+  const custBtn =
+    navChildren.find((el) => {
+      if (el === modsBtn || el === autoBtn || el === newChatBtn) return false;
+      const text = el.textContent ? el.textContent.trim() : "";
+      const href = el.getAttribute("href");
+      return text === "Customizations" || href === "/customizations";
+    }) || null;
 
   return { modsBtn, autoBtn, custBtn, newChatBtn };
 }
 
-export function updateSidebarActiveState(isActive: boolean, targetElement?: HTMLElement | null): void {
+export function updateSidebarActiveState(
+  isActive: boolean,
+  targetElement?: HTMLElement | null
+): void {
   if (isSyncing) return;
   isSyncing = true;
   try {
@@ -76,9 +82,15 @@ export function updateSidebarActiveState(isActive: boolean, targetElement?: HTML
 
     // If an explicit target element was clicked (e.g. user clicked Customizations, Automations, or New Conversation)
     if (targetElement) {
-      const isNewChat = Boolean(newChatBtn && (newChatBtn === targetElement || newChatBtn.contains(targetElement)));
-      const isCust = Boolean(custBtn && (custBtn === targetElement || custBtn.contains(targetElement)));
-      const isAuto = Boolean(autoBtn && (autoBtn === targetElement || autoBtn.contains(targetElement)));
+      const isNewChat = Boolean(
+        newChatBtn && (newChatBtn === targetElement || newChatBtn.contains(targetElement))
+      );
+      const isCust = Boolean(
+        custBtn && (custBtn === targetElement || custBtn.contains(targetElement))
+      );
+      const isAuto = Boolean(
+        autoBtn && (autoBtn === targetElement || autoBtn.contains(targetElement))
+      );
 
       if (isNewChat) {
         if (newChatBtn) setNewChatActive(newChatBtn);
@@ -152,7 +164,9 @@ export function mountSidebarButton(bridge: DaemonBridge): void {
     // Look for sidebar navigation items container
     let targetNav = document.querySelector<HTMLElement>('[data-testid="sidebar-navigation-items"]');
     if (!targetNav) {
-      const newConv = document.querySelector<HTMLElement>('[data-testid="new-conversation-button"]');
+      const newConv = document.querySelector<HTMLElement>(
+        '[data-testid="new-conversation-button"]'
+      );
       if (newConv?.parentElement) {
         targetNav = newConv.parentElement;
       }
@@ -161,7 +175,9 @@ export function mountSidebarButton(bridge: DaemonBridge): void {
     if (!targetNav) {
       const nav = document.querySelector('[role="navigation"]');
       if (nav) {
-        const items = nav.querySelector<HTMLElement>('[data-testid="sidebar-navigation-items"], .flex.flex-col');
+        const items = nav.querySelector<HTMLElement>(
+          '[data-testid="sidebar-navigation-items"], .flex.flex-col'
+        );
         if (items) targetNav = items;
       }
     }
@@ -172,8 +188,9 @@ export function mountSidebarButton(bridge: DaemonBridge): void {
     const btn = document.createElement("button");
     btn.setAttribute("type", "button");
     btn.setAttribute(BUTTON_ATTR, "true");
-    btn.className = "agy-button agy-button-custom inline-flex items-center font-medium transition-colors select-none outline-none cursor-pointer disabled:opacity-50 flex-grow w-full justify-start font-normal min-w-0 gap-1.5 px-2 rounded-lg py-1.5 bg-transparent text-secondary-foreground hover:bg-sidebar-muted hover:text-foreground";
-    
+    btn.className =
+      "agy-button agy-button-custom inline-flex items-center font-medium transition-colors select-none outline-none cursor-pointer disabled:opacity-50 flex-grow w-full justify-start font-normal min-w-0 gap-1.5 px-2 rounded-lg py-1.5 bg-transparent text-secondary-foreground hover:bg-sidebar-muted hover:text-foreground";
+
     // Puzzle / Mod icon SVG
     const iconSpan = document.createElement("span");
     iconSpan.className = "shrink-0 flex items-center";
@@ -202,27 +219,39 @@ export function mountSidebarButton(bridge: DaemonBridge): void {
   tryMount();
 
   // Close mods view if user clicks any other link or button in the sidebar
-  document.addEventListener("click", (e) => {
-    const target = e.target as HTMLElement | null;
-    if (!target) return;
-    const sidebar = document.querySelector('[role="navigation"]');
-    if (sidebar && sidebar.contains(target) && !target.closest(`[${BUTTON_ATTR}]`)) {
-      if (isModsViewOpen()) {
-        closeModsView(target);
-      } else {
-        updateSidebarActiveState(false, target);
+  document.addEventListener(
+    "click",
+    (e) => {
+      const target = e.target as HTMLElement | null;
+      if (!target) return;
+      const sidebar = document.querySelector('[role="navigation"]');
+      if (sidebar && sidebar.contains(target) && !target.closest(`[${BUTTON_ATTR}]`)) {
+        if (isModsViewOpen()) {
+          closeModsView(target);
+        } else {
+          updateSidebarActiveState(false, target);
+        }
       }
-    }
-  }, true);
+    },
+    true
+  );
 
   // Sync state on popstate (browser back/forward navigation)
   window.addEventListener("popstate", () => {
     updateSidebarActiveState(isModsViewOpen());
   });
 
+  interface AGYHistory extends History {
+    __agyBoostHooked?: boolean;
+  }
+
   // Intercept history.pushState / history.replaceState to sync when React router updates the URL
-  if (typeof window !== "undefined" && window.history && !(window.history as any).__agyBoostHooked) {
-    (window.history as any).__agyBoostHooked = true;
+  if (
+    typeof window !== "undefined" &&
+    window.history &&
+    !(window.history as AGYHistory).__agyBoostHooked
+  ) {
+    (window.history as AGYHistory).__agyBoostHooked = true;
     const origPush = window.history.pushState.bind(window.history);
     window.history.pushState = function (...args) {
       const res = origPush(...args);

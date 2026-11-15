@@ -3,6 +3,7 @@
 AGY Boost gives you complete native control over the visual appearance, color palette, and UX of Google Antigravity.
 
 You can create themes in two ways:
+
 1. **Pure CSS Mod (Zero Code)**: A simple `mod.json` pointing to a `.css` file.
 2. **Dynamic TypeScript Mod**: Control variables, styles, and dynamic DOM reactions programmatically via `AGYBoost.ui`.
 
@@ -19,6 +20,7 @@ my-theme/
 ```
 
 ### `mod.json`
+
 ```json
 {
   "id": "dracula-theme",
@@ -31,6 +33,7 @@ my-theme/
 ```
 
 ### `theme.css`
+
 ```css
 :root {
   /* Core Background & Foreground */
@@ -75,60 +78,66 @@ my-theme/
 These variables are extracted directly from Google Antigravity's live rendering engine.
 
 ### Surfaces & Layout
-| CSS Variable | Description |
-| --- | --- |
-| `--background` | Main window and application background |
-| `--body-background` | Canvas body background |
-| `--foreground` | Default text color |
-| `--card` | Background color for cards, panels, and floating modals |
-| `--card-border` | Border color for cards and dialogs |
-| `--card-radius` | Corner radius for cards (e.g. `16px`) |
-| `--border` | Dividers, line borders, and container edges |
-| `--muted` | Subdued surface backgrounds |
-| `--muted-foreground` | Secondary, hint, and timestamp text |
-| `--glass` / `--glass-border` | Glassmorphism surfaces and translucent overlays |
+
+| CSS Variable                 | Description                                             |
+| ---------------------------- | ------------------------------------------------------- |
+| `--background`               | Main window and application background                  |
+| `--body-background`          | Canvas body background                                  |
+| `--foreground`               | Default text color                                      |
+| `--card`                     | Background color for cards, panels, and floating modals |
+| `--card-border`              | Border color for cards and dialogs                      |
+| `--card-radius`              | Corner radius for cards (e.g. `16px`)                   |
+| `--border`                   | Dividers, line borders, and container edges             |
+| `--muted`                    | Subdued surface backgrounds                             |
+| `--muted-foreground`         | Secondary, hint, and timestamp text                     |
+| `--glass` / `--glass-border` | Glassmorphism surfaces and translucent overlays         |
 
 ### Navigation & Sidebar
-| CSS Variable | Description |
-| --- | --- |
-| `--sidebar` | Left navigation sidebar background |
-| `--color-sidebar` | Alternate sidebar background container |
+
+| CSS Variable          | Description                                                 |
+| --------------------- | ----------------------------------------------------------- |
+| `--sidebar`           | Left navigation sidebar background                          |
+| `--color-sidebar`     | Alternate sidebar background container                      |
 | `--sidebar-secondary` | Background of the currently active/selected navigation item |
-| `--sidebar-muted` | Background on hover for idle navigation items |
-| `--sidebar-width` | Width of the sidebar (e.g. `240px`) |
+| `--sidebar-muted`     | Background on hover for idle navigation items               |
+| `--sidebar-width`     | Width of the sidebar (e.g. `240px`)                         |
 
 ### Primary Accent & Controls
-| CSS Variable | Description |
-| --- | --- |
-| `--primary` | Main action buttons, active pills, and focus highlights |
-| `--primary-foreground` | Text color on primary buttons |
-| `--secondary` | Inactive pills, chips, and secondary buttons |
-| `--secondary-foreground` | Text color on secondary buttons |
-| `--link` / `--cta` | Hyperlinks and call-to-action buttons |
-| `--focus-ring-color` | Outline glow when clicking or focusing an input |
+
+| CSS Variable             | Description                                             |
+| ------------------------ | ------------------------------------------------------- |
+| `--primary`              | Main action buttons, active pills, and focus highlights |
+| `--primary-foreground`   | Text color on primary buttons                           |
+| `--secondary`            | Inactive pills, chips, and secondary buttons            |
+| `--secondary-foreground` | Text color on secondary buttons                         |
+| `--link` / `--cta`       | Hyperlinks and call-to-action buttons                   |
+| `--focus-ring-color`     | Outline glow when clicking or focusing an input         |
 
 ### Code & Syntax Highlighting
+
 Antigravity styles code snippets and syntax highlighting in conversation messages using these tokens:
-| CSS Variable | Description |
-| --- | --- |
-| `--syntax-keyword` | Language keywords (`const`, `function`, `return`, `class`) |
-| `--syntax-string` | String literals (`"text"`, `'path'`) |
-| `--syntax-function` | Function and method identifiers |
-| `--syntax-variable` | Variable names and parameters |
-| `--syntax-number` | Numerical literals (`42`, `3.14`) |
-| `--syntax-comment` | Code comments (`// ...`, `/* ... */`) |
-| `--syntax-constant` | Boolean and constant values (`true`, `null`, `nil`) |
-| `--syntax-operator` | Mathematical and logical operators (`+`, `-`, `=`, `=>`) |
-| `--syntax-punctuation` | Brackets, commas, semicolons (`{`, `}`, `;`) |
-| `--syntax-class-name` | Class, interface, and struct names |
+
+| CSS Variable           | Description                                                |
+| ---------------------- | ---------------------------------------------------------- |
+| `--syntax-keyword`     | Language keywords (`const`, `function`, `return`, `class`) |
+| `--syntax-string`      | String literals (`"text"`, `'path'`)                       |
+| `--syntax-function`    | Function and method identifiers                            |
+| `--syntax-variable`    | Variable names and parameters                              |
+| `--syntax-number`      | Numerical literals (`42`, `3.14`)                          |
+| `--syntax-comment`     | Code comments (`// ...`, `/* ... */`)                      |
+| `--syntax-constant`    | Boolean and constant values (`true`, `null`, `nil`)        |
+| `--syntax-operator`    | Mathematical and logical operators (`+`, `-`, `=`, `=>`)   |
+| `--syntax-punctuation` | Brackets, commas, semicolons (`{`, `}`, `;`)               |
+| `--syntax-class-name`  | Class, interface, and struct names                         |
 
 ### Feedback & Status
-| CSS Variable | Description |
-| --- | --- |
-| `--success` | Green indicators and success toasts |
-| `--warning` | Yellow/amber warnings |
-| `--error` | Red error messages and destructive button states |
-| `--bg-selection` | Background color of highlighted/selected text |
+
+| CSS Variable     | Description                                      |
+| ---------------- | ------------------------------------------------ |
+| `--success`      | Green indicators and success toasts              |
+| `--warning`      | Yellow/amber warnings                            |
+| `--error`        | Red error messages and destructive button states |
+| `--bg-selection` | Background color of highlighted/selected text    |
 
 ---
 
@@ -174,5 +183,6 @@ if (typeof mod !== "undefined" && mod.onDispose) {
 ## 4. Layout Protection (Important Safety Rule)
 
 When modifying CSS or adding overlay views:
+
 - **NEVER set inline `display: block` on `[data-testid="conversation-view"]`** (this is a Tailwind flex column; forcing `display: block` collapses the message scroller).
 - Always use `display: flex !important` or leave the display attribute empty (`""`) to inherit Antigravity's native Tailwind classes.

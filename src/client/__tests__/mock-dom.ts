@@ -230,6 +230,7 @@ function matchesSelectorPart(el: MockElement, sel: string): boolean {
     const attrMatch = sel.match(/^\[([^=\]]+)(?:="?([^"\]]*)"?)?\]$/);
     if (attrMatch) {
       const [, name, val] = attrMatch;
+      if (!name) return false;
       if (val !== undefined) {
         return el.getAttribute(name) === val;
       }
@@ -240,7 +241,7 @@ function matchesSelectorPart(el: MockElement, sel: string): boolean {
   const tagAttrMatch = sel.match(/^([a-zA-Z0-9_-]+)\[([^=\]]+)(?:="?([^"\]]*)"?)?\]$/);
   if (tagAttrMatch) {
     const [, tag, name, val] = tagAttrMatch;
-    if (el.tagName.toLowerCase() !== tag.toLowerCase()) return false;
+    if (!tag || !name || el.tagName.toLowerCase() !== tag.toLowerCase()) return false;
     if (val !== undefined) {
       return el.getAttribute(name) === val;
     }
@@ -252,7 +253,7 @@ function matchesSelectorPart(el: MockElement, sel: string): boolean {
 }
 
 function queryAllDescendants(root: MockNode, selector: string): MockElement[] {
-  const parts = selector.trim().match(/(?:\[[^\]]+\]|[^\s\[\]])+/g) || [];
+  const parts = selector.trim().match(/(?:\[[^\]]+\]|[^\s[\]])+/g) || [];
   if (parts.length === 0 || !parts[0]) return [];
 
   let currentElements: MockElement[] = [];
@@ -275,7 +276,7 @@ function queryAllDescendants(root: MockNode, selector: string): MockElement[] {
       const collectSub = (n: MockNode) => {
         for (const child of n.childNodes) {
           if (child instanceof MockElement) {
-            if (matchesSelectorPart(child, part)) sub.push(child);
+            if (part && matchesSelectorPart(child, part)) sub.push(child);
             collectSub(child);
           }
         }
@@ -291,10 +292,21 @@ function queryAllDescendants(root: MockNode, selector: string): MockElement[] {
   return currentElements;
 }
 
+export interface MockDOMEvent {
+  type: string;
+  target?: unknown;
+  currentTarget?: unknown;
+  preventDefault?: () => void;
+  stopPropagation?: () => void;
+  [key: string]: unknown;
+}
+
+export type MockEventListener = (event: Event | MockDOMEvent) => void;
+
 export class MockElement extends MockNode {
   override nodeType = 1;
   attributes = new Map<string, string>();
-  listeners = new Map<string, Array<(event: any) => void>>();
+  listeners = new Map<string, MockEventListener[]>();
   style = new MockCSSStyleDeclaration();
 
   constructor(public tagName: string) {
@@ -325,13 +337,13 @@ export class MockElement extends MockNode {
     return this.attributes.has(name);
   }
 
-  addEventListener(type: string, listener: (event: any) => void, _capture?: any): void {
+  addEventListener(type: string, listener: MockEventListener, _capture?: unknown): void {
     const list = this.listeners.get(type) || [];
     list.push(listener);
     this.listeners.set(type, list);
   }
 
-  removeEventListener(type: string, listener: (event: any) => void, _capture?: any): void {
+  removeEventListener(type: string, listener: MockEventListener, _capture?: unknown): void {
     const list = this.listeners.get(type);
     if (!list) return;
     const idx = list.indexOf(listener);
@@ -340,7 +352,7 @@ export class MockElement extends MockNode {
     }
   }
 
-  dispatchEvent(event: { type: string; [key: string]: any }): boolean {
+  dispatchEvent(event: MockDOMEvent): boolean {
     const list = this.listeners.get(event.type) || [];
     for (const listener of list) {
       listener(event);
@@ -348,7 +360,7 @@ export class MockElement extends MockNode {
     return true;
   }
 
-  onclick: ((event: any) => void) | null = null;
+  onclick: MockEventListener | null = null;
 
   click(): void {
     const event = {
@@ -378,10 +390,7 @@ export class MockElement extends MockNode {
     contains: (token: string) => boolean;
     toggle: (token: string, force?: boolean) => boolean;
   } {
-    const getTokens = () =>
-      (this.getAttribute("class") || "")
-        .split(/\s+/)
-        .filter(Boolean);
+    const getTokens = () => (this.getAttribute("class") || "").split(/\s+/).filter(Boolean);
 
     const setTokens = (tokens: string[]) => {
       this.setAttribute("class", tokens.join(" "));
@@ -442,7 +451,7 @@ export class MockDocument extends MockNode {
   documentElement: MockElement;
   head: MockElement;
   body: MockElement;
-  listeners = new Map<string, Array<(event: any) => void>>();
+  listeners = new Map<string, MockEventListener[]>();
 
   constructor() {
     super();
@@ -474,13 +483,13 @@ export class MockDocument extends MockNode {
     return this.documentElement.querySelectorAll(selector);
   }
 
-  addEventListener(type: string, listener: (event: any) => void, _capture?: any): void {
+  addEventListener(type: string, listener: MockEventListener, _capture?: unknown): void {
     const list = this.listeners.get(type) || [];
     list.push(listener);
     this.listeners.set(type, list);
   }
 
-  removeEventListener(type: string, listener: (event: any) => void, _capture?: any): void {
+  removeEventListener(type: string, listener: MockEventListener, _capture?: unknown): void {
     const list = this.listeners.get(type);
     if (!list) return;
     const idx = list.indexOf(listener);
@@ -489,7 +498,7 @@ export class MockDocument extends MockNode {
     }
   }
 
-  dispatchEvent(event: { type: string; [key: string]: any }): boolean {
+  dispatchEvent(event: MockDOMEvent): boolean {
     const list = this.listeners.get(event.type) || [];
     for (const listener of list) {
       listener(event);
@@ -497,7 +506,7 @@ export class MockDocument extends MockNode {
     return true;
   }
 
-  onclick: ((event: any) => void) | null = null;
+  onclick: MockEventListener | null = null;
 
   click(): void {
     const event = {
@@ -514,16 +523,30 @@ export class MockDocument extends MockNode {
   }
 }
 
+export interface MockMutationRecord {
+  type: string;
+  target: MockNode;
+  addedNodes?: MockNode[] | undefined;
+  removedNodes?: MockNode[] | undefined;
+  attributeName?: string | null | undefined;
+  oldValue?: string | null | undefined;
+}
+
 export class MockMutationObserver {
   private static activeObservers: Array<{
     observer: MockMutationObserver;
     target: MockNode;
-    options?: any;
+    options?: { subtree?: boolean; childList?: boolean; attributes?: boolean } | undefined;
   }> = [];
 
-  constructor(public callback: (mutations: any[], observer: MockMutationObserver) => void) {}
+  constructor(
+    public callback: (mutations: MockMutationRecord[], observer: MockMutationObserver) => void
+  ) {}
 
-  observe(target: MockNode, options?: any): void {
+  observe(
+    target: MockNode,
+    options?: { subtree?: boolean; childList?: boolean; attributes?: boolean } | undefined
+  ): void {
     MockMutationObserver.activeObservers.push({
       observer: this,
       target,
@@ -537,9 +560,30 @@ export class MockMutationObserver {
     );
   }
 
-  static notify(record: { type: string; target: MockNode; addedNodes: MockNode[]; removedNodes: MockNode[] }): void {
+  static notify(record: {
+    type: string;
+    target: MockNode;
+    addedNodes: MockNode[];
+    removedNodes: MockNode[];
+  }): void {
     for (const entry of [...this.activeObservers]) {
-      if (entry.target === record.target || (entry.options?.subtree && entry.target.contains(record.target))) {
+      if (
+        entry.target === record.target ||
+        (entry.options?.subtree && entry.target.contains(record.target))
+      ) {
+        try {
+          entry.observer.callback([record], entry.observer);
+        } catch {}
+      }
+    }
+  }
+
+  static notifyMutation(record: MockMutationRecord): void {
+    for (const entry of [...this.activeObservers]) {
+      if (
+        entry.target === record.target ||
+        (entry.options?.subtree && entry.target.contains(record.target))
+      ) {
         try {
           entry.observer.callback([record], entry.observer);
         } catch {}
@@ -548,25 +592,34 @@ export class MockMutationObserver {
   }
 }
 
+interface GlobalDOMScope {
+  document?: unknown;
+  Node?: unknown;
+  HTMLElement?: unknown;
+  MutationObserver?: unknown;
+  window?: unknown;
+}
+
 export function setupMockDOM(): () => void {
-  const origDocument = (globalThis as any).document;
-  const origNode = (globalThis as any).Node;
-  const origElement = (globalThis as any).HTMLElement;
-  const origMutationObserver = (globalThis as any).MutationObserver;
-  const origWindow = (globalThis as any).window;
+  const globalScope = globalThis as unknown as GlobalDOMScope;
+  const origDocument = globalScope.document;
+  const origNode = globalScope.Node;
+  const origElement = globalScope.HTMLElement;
+  const origMutationObserver = globalScope.MutationObserver;
+  const origWindow = globalScope.window;
 
   const mockDoc = new MockDocument();
-  (globalThis as any).document = mockDoc;
-  (globalThis as any).Node = MockNode;
-  (globalThis as any).HTMLElement = MockElement;
-  (globalThis as any).MutationObserver = MockMutationObserver;
-  (globalThis as any).window = mockDoc;
+  globalScope.document = mockDoc;
+  globalScope.Node = MockNode;
+  globalScope.HTMLElement = MockElement;
+  globalScope.MutationObserver = MockMutationObserver;
+  globalScope.window = mockDoc;
 
   return () => {
-    (globalThis as any).document = origDocument;
-    (globalThis as any).Node = origNode;
-    (globalThis as any).HTMLElement = origElement;
-    (globalThis as any).MutationObserver = origMutationObserver;
-    (globalThis as any).window = origWindow;
+    globalScope.document = origDocument;
+    globalScope.Node = origNode;
+    globalScope.HTMLElement = origElement;
+    globalScope.MutationObserver = origMutationObserver;
+    globalScope.window = origWindow;
   };
 }

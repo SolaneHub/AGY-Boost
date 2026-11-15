@@ -41,18 +41,25 @@ export const AGYBoost = {
   },
 };
 
+interface AGYGlobalWindow {
+  AGYBoost?: typeof AGYBoost;
+  __AGY_BOOST_INITIALIZED__?: boolean;
+}
+
+const globalObj = globalThis as unknown as AGYGlobalWindow;
+
 // Expose globally on window
-(globalThis as any).AGYBoost = AGYBoost;
+globalObj.AGYBoost = AGYBoost;
 
 function initRuntime(): void {
   const root = typeof document !== "undefined" ? document.documentElement : null;
-  if ((root && root.dataset.agyBoostLoaded === "true") || (globalThis as any).__AGY_BOOST_INITIALIZED__) {
+  if ((root && root.dataset.agyBoostLoaded === "true") || globalObj.__AGY_BOOST_INITIALIZED__) {
     return;
   }
   if (root) {
     root.dataset.agyBoostLoaded = "true";
   }
-  (globalThis as any).__AGY_BOOST_INITIALIZED__ = true;
+  globalObj.__AGY_BOOST_INITIALIZED__ = true;
 
   enforceConversationLayoutInvariant();
   mountSidebarButton(bridge);

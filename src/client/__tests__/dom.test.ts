@@ -72,29 +72,25 @@ describe("DOM Builder (el)", () => {
       },
     });
 
-    (button as any).dispatchEvent({ type: "click" });
-    (button as any).dispatchEvent({ type: "click" });
+    button.click();
+    button.click();
     assert.equal(clicked, 2);
   });
 
   test("nests child nodes, strings, and ignores null/undefined", () => {
-    const parent = el(
-      "div",
-      { id: "parent" },
-      [
-        "Text first",
-        null,
-        el("span", { class: "child" }, ["Child text"]),
-        undefined,
-        "Text last",
-      ]
-    );
+    const parent = el("div", { id: "parent" }, [
+      "Text first",
+      null,
+      el("span", { class: "child" }, ["Child text"]),
+      undefined,
+      "Text last",
+    ]);
 
-    assert.equal((parent as any).childNodes.length, 3);
-    assert.equal((parent as any).childNodes[0].textContent, "Text first");
-    assert.equal((parent as any).childNodes[1].tagName.toLowerCase(), "span");
-    assert.equal((parent as any).childNodes[1].textContent, "Child text");
-    assert.equal((parent as any).childNodes[2].textContent, "Text last");
+    assert.equal(parent.childNodes.length, 3);
+    assert.equal(parent.childNodes[0]?.textContent, "Text first");
+    assert.equal((parent.childNodes[1] as HTMLElement).tagName.toLowerCase(), "span");
+    assert.equal(parent.childNodes[1]?.textContent, "Child text");
+    assert.equal(parent.childNodes[2]?.textContent, "Text last");
     assert.equal(parent.textContent, "Text firstChild textText last");
   });
 });

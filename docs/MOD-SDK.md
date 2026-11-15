@@ -11,7 +11,9 @@ The declaration file is located at [`src/sdk/index.d.ts`](../src/sdk/index.d.ts)
 When a mod runs inside Antigravity, two global namespaces are accessible:
 
 ### 1. `AGYBoost`
+
 The global engine namespace available to all scripts:
+
 - **`AGYBoost.version`**: String version of AGY Boost (e.g. `"0.0.0"`).
 - **`AGYBoost.wasm.load<T>(source, imports?)`**: Loads and instantiates a WebAssembly module.
 - **`AGYBoost.daemon`**: Interacts with the native Go daemon (`isHealthy`, `spawn`, `kill`).
@@ -24,7 +26,9 @@ The global engine namespace available to all scripts:
 - **`AGYBoost.ui.closeModsView()`**: Closes the mods management overlay.
 
 ### 2. `mod` (Optional context)
+
 When loaded in managed mode:
+
 - **`mod.manifest`**: Read-only `mod.json` object.
 - **`mod.wasm`**: Mod-scoped WebAssembly loader.
 - **`mod.daemon`**: Mod-scoped background daemon manager (`isHealthy`, `spawn`, `kill`).
@@ -36,6 +40,7 @@ When loaded in managed mode:
 ## Security Contracts & Daemon IPC
 
 Mods communicating with the local Go daemon (`127.0.0.1:42042`) inherit the following security contracts:
+
 1. **Loopback Only**: All network communication stays strictly on the local machine (`127.0.0.1`).
 2. **CORS Restrictions**: Daemon endpoints enforce strict origin checking. Only Antigravity renderer origins (`http://127.0.0.1:*`, `https://127.0.0.1:*`, `http://localhost:*`, `https://localhost:*`) are accepted.
 3. **Loopback Token Authentication**:
@@ -53,14 +58,14 @@ Mods communicating with the local Go daemon (`127.0.0.1:42042`) inherit the foll
 
 ## `mod.json` Specification
 
-| Field | Type | Required | Description |
-| --- | --- | --- | --- |
-| `id` | `string` | **Yes** | Unique identifier (e.g. `my-awesome-mod`). |
-| `name` | `string` | **Yes** | Human-readable name displayed in the UI. |
-| `version` | `string` | **Yes** | Semantic version (e.g. `1.0.0`). |
-| `description` | `string` | No | Short summary of what the mod does. |
-| `author` | `string` | No | Author name or GitHub handle. |
-| `main` | `string` | No | Path to the pure TypeScript / JavaScript entry point (`index.js`). |
-| `style` | `string` \| `string[]` | No | Path to CSS stylesheet(s) injected automatically when mod is active (`theme.css`). |
-| `wasm` | `string` | No | Path to a precompiled `.wasm` binary (`compute.wasm`). |
-| `daemon` | `string` | No | Path to a native Go sidecar executable (`daemon`). |
+| Field         | Type                   | Required | Description                                                                        |
+| ------------- | ---------------------- | -------- | ---------------------------------------------------------------------------------- |
+| `id`          | `string`               | **Yes**  | Unique identifier (e.g. `my-awesome-mod`).                                         |
+| `name`        | `string`               | **Yes**  | Human-readable name displayed in the UI.                                           |
+| `version`     | `string`               | **Yes**  | Semantic version (e.g. `1.0.0`).                                                   |
+| `description` | `string`               | No       | Short summary of what the mod does.                                                |
+| `author`      | `string`               | No       | Author name or GitHub handle.                                                      |
+| `main`        | `string`               | No       | Path to the pure TypeScript / JavaScript entry point (`index.js`).                 |
+| `style`       | `string` \| `string[]` | No       | Path to CSS stylesheet(s) injected automatically when mod is active (`theme.css`). |
+| `wasm`        | `string`               | No       | Path to a precompiled `.wasm` binary (`compute.wasm`).                             |
+| `daemon`      | `string`               | No       | Path to a native Go sidecar executable (`daemon`).                                 |

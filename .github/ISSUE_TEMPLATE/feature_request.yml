@@ -19,6 +19,14 @@ body:
     id: area
     attributes:
       label: Where does it belong?
-      options: [Native CLI & Patcher, In-client Runtime, Background Daemon, Mod SDK & Theming, WebAssembly, Documentation]
+      options:
+        [
+          Native CLI & Patcher,
+          In-client Runtime,
+          Background Daemon,
+          Mod SDK & Theming,
+          WebAssembly,
+          Documentation,
+        ]
     validations:
       required: true

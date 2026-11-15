@@ -18,7 +18,7 @@ describe("Mod Detail View (renderModDetail)", () => {
 
   beforeEach(() => {
     while (document.body.childNodes.length > 0) {
-      document.body.childNodes[0].remove();
+      document.body.childNodes[0]?.remove();
     }
   });
 
@@ -58,7 +58,9 @@ describe("Mod Detail View (renderModDetail)", () => {
     const h1 = container.querySelector("h1");
     assert.equal(h1?.textContent, "Effort Optimizer");
 
-    const backBtn = container.querySelector<HTMLButtonElement>('[data-testid="plugin-detail-back-button"]');
+    const backBtn = container.querySelector<HTMLButtonElement>(
+      '[data-testid="plugin-detail-back-button"]'
+    );
     assert.ok(backBtn !== null, "Back button must exist");
     backBtn.click();
     assert.equal(backCalled, true, "onBack must be invoked when clicking back");
@@ -106,7 +108,10 @@ describe("Mod Detail View (renderModDetail)", () => {
     // Initial is Overview
     assert.equal(tabOverview.getAttribute("aria-selected"), "true");
     assert.equal(tabSkills.getAttribute("aria-selected"), "false");
-    assert.ok(container.querySelector('[data-markdown-root]') !== null, "Readme markdown root should exist in Overview");
+    assert.ok(
+      container.querySelector("[data-markdown-root]") !== null,
+      "Readme markdown root should exist in Overview"
+    );
 
     // Click Skills
     tabSkills.click();

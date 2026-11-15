@@ -18,7 +18,9 @@ interface ParsedShortcut {
 export function isMac(): boolean {
   if (typeof navigator !== "undefined") {
     const ua = navigator.userAgent || "";
-    const platform = (navigator as any).userAgentData?.platform || navigator.platform || "";
+    const userAgentData = (navigator as Navigator & { userAgentData?: { platform?: string } })
+      .userAgentData;
+    const platform = userAgentData?.platform || navigator.platform || "";
     if (/mac/i.test(platform) || /mac/i.test(ua)) return true;
     if (/linux|win/i.test(platform) || /linux|windows/i.test(ua)) return false;
   }
@@ -73,14 +75,23 @@ export function parseCombo(combo: string, mac: boolean): ParsedShortcut {
     str = "";
   }
 
-  const rawTokens = str.split("+").map((s) => s.trim().toLowerCase()).filter(Boolean);
+  const rawTokens = str
+    .split("+")
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean);
   let ctrl = false;
   let meta = false;
   let shift = false;
   let alt = false;
 
   for (const token of rawTokens) {
-    if (token === "cmd" || token === "command" || token === "cmdorctrl" || token === "commandorcontrol" || token === "mod") {
+    if (
+      token === "cmd" ||
+      token === "command" ||
+      token === "cmdorctrl" ||
+      token === "commandorcontrol" ||
+      token === "mod"
+    ) {
       if (mac) {
         meta = true;
       } else {
@@ -124,7 +135,10 @@ export function matchesKeyboardEvent(e: KeyboardEvent, shortcut: ParsedShortcut)
   if (eventCode === `key${target}` || eventCode === `digit${target}`) return true;
 
   // Keyboard plus/equal key matching
-  if ((target === "+" || target === "=") && (eventCode === "equal" || eventKey === "+" || eventKey === "=")) {
+  if (
+    (target === "+" || target === "=") &&
+    (eventCode === "equal" || eventKey === "+" || eventKey === "=")
+  ) {
     return true;
   }
 
@@ -141,23 +155,22 @@ export function matchesKeyboardEvent(e: KeyboardEvent, shortcut: ParsedShortcut)
  * Normalizes Cmd (Meta) on Mac and Ctrl on Windows/Linux.
  * Returns an unregister function to remove the shortcut listener.
  */
-export function registerShortcut(
-  combo: string,
-  handler: (e: KeyboardEvent) => void
-): () => void {
+export function registerShortcut(combo: string, handler: (e: KeyboardEvent) => void): () => void {
   const parsed = parseCombo(combo, isMac());
-  const target = (typeof window !== "undefined" ? window : (typeof document !== "undefined" ? document : null)) as any;
+  const target: EventTarget | null =
+    typeof window !== "undefined" ? window : typeof document !== "undefined" ? document : null;
   if (!target || typeof target.addEventListener !== "function") {
     return () => {};
   }
 
   let unregistered = false;
 
-  const listener = (event: KeyboardEvent) => {
+  const listener = (event: Event) => {
     if (unregistered) return;
-    if (matchesKeyboardEvent(event, parsed)) {
+    const keyEvent = event as KeyboardEvent;
+    if (matchesKeyboardEvent(keyEvent, parsed)) {
       try {
-        handler(event);
+        handler(keyEvent);
       } catch {}
     }
   };
@@ -190,7 +203,9 @@ export function mountHeader(element: HTMLElement): () => void {
   // Deduplicate: If an element with the same slot and id/mod already exists in DOM, remove old one
   const modId = element.getAttribute("data-agy-mod-id") || element.id;
   if (modId) {
-    const selector = element.id ? `#${element.id}` : `[data-agy-mounted-slot="header"][data-agy-mod-id="${modId}"]`;
+    const selector = element.id
+      ? `#${element.id}`
+      : `[data-agy-mounted-slot="header"][data-agy-mod-id="${modId}"]`;
     const existing = document.querySelector(selector);
     if (existing && existing !== element) {
       existing.remove();
@@ -199,15 +214,18 @@ export function mountHeader(element: HTMLElement): () => void {
 
   const getBestTarget = (): MountTarget | null => {
     // 1. Toolbar inside main content header (Priority 1)
-    const toolbar = document.querySelector<HTMLElement>('[data-main-content-header="true"] [data-testid="pane-titlebar-toolbar"]')
-      || document.querySelector<HTMLElement>('[data-testid="pane-titlebar-toolbar"]');
+    const toolbar =
+      document.querySelector<HTMLElement>(
+        '[data-main-content-header="true"] [data-testid="pane-titlebar-toolbar"]'
+      ) || document.querySelector<HTMLElement>('[data-testid="pane-titlebar-toolbar"]');
     if (toolbar) {
       return { target: toolbar, method: "prepend", priority: 1 };
     }
 
     // 2. Main content header element (Priority 2)
-    const header = document.querySelector<HTMLElement>('[data-main-content-header="true"]')
-      || document.querySelector<HTMLElement>("header");
+    const header =
+      document.querySelector<HTMLElement>('[data-main-content-header="true"]') ||
+      document.querySelector<HTMLElement>("header");
     if (header) {
       return { target: header, method: "append", priority: 2 };
     }
@@ -321,7 +339,9 @@ export function mountComposer(element: HTMLElement): () => void {
   // Deduplicate: If an element with the same slot and id/mod already exists in DOM, remove old one
   const modId = element.getAttribute("data-agy-mod-id") || element.id;
   if (modId) {
-    const selector = element.id ? `#${element.id}` : `[data-agy-mounted-slot="composer"][data-agy-mod-id="${modId}"]`;
+    const selector = element.id
+      ? `#${element.id}`
+      : `[data-agy-mounted-slot="composer"][data-agy-mod-id="${modId}"]`;
     const existing = document.querySelector(selector);
     if (existing && existing !== element) {
       existing.remove();
@@ -330,25 +350,31 @@ export function mountComposer(element: HTMLElement): () => void {
 
   const getBestTarget = (): ComposerMountTarget | null => {
     // 1. Next to model-selector-trigger container (Priority 1)
-    const modelTrigger = document.querySelector<HTMLElement>('[data-testid="model-selector-trigger"]');
+    const modelTrigger = document.querySelector<HTMLElement>(
+      '[data-testid="model-selector-trigger"]'
+    );
     if (modelTrigger) {
-      const parentContainer = modelTrigger.closest<HTMLElement>(".no-focus-agent-input")?.parentElement
-        || modelTrigger.parentElement;
+      const parentContainer =
+        modelTrigger.closest<HTMLElement>(".no-focus-agent-input")?.parentElement ||
+        modelTrigger.parentElement;
       if (parentContainer) {
         return { target: parentContainer, method: "append" };
       }
     }
 
     // 2. Next to permissions-selector-trigger container (Priority 2)
-    const permTrigger = document.querySelector<HTMLElement>('[data-testid="permissions-selector-trigger"]');
+    const permTrigger = document.querySelector<HTMLElement>(
+      '[data-testid="permissions-selector-trigger"]'
+    );
     if (permTrigger?.parentElement) {
       return { target: permTrigger.parentElement, method: "append" };
     }
 
     // 3. Composer footer / root container (Priority 3)
-    const composerRoot = document.querySelector<HTMLElement>('[data-agent-composer-root]')
-      || document.querySelector<HTMLElement>(".agy-composer-footer")
-      || document.querySelector<HTMLElement>('[data-testid="agent-input-box"]');
+    const composerRoot =
+      document.querySelector<HTMLElement>("[data-agent-composer-root]") ||
+      document.querySelector<HTMLElement>(".agy-composer-footer") ||
+      document.querySelector<HTMLElement>('[data-testid="agent-input-box"]');
     if (composerRoot) {
       return { target: composerRoot, method: "append" };
     }
@@ -381,7 +407,10 @@ export function mountComposer(element: HTMLElement): () => void {
   tryAttach();
 
   if (typeof MutationObserver !== "undefined") {
-    const root = document.querySelector('[data-testid="conversation-view"]') || document.body || document.documentElement;
+    const root =
+      document.querySelector('[data-testid="conversation-view"]') ||
+      document.body ||
+      document.documentElement;
     if (root) {
       observer = new MutationObserver(() => {
         if (unmounted) return;
@@ -408,10 +437,7 @@ export function mountComposer(element: HTMLElement): () => void {
  * (fixed, pointer-events: none on container, pointer-events: auto on element, z-index: 9999).
  * Returns an unmount function that removes the element and cleans up the container if empty.
  */
-export function mountFloatingHUD(
-  element: HTMLElement,
-  options?: HUDOptions
-): () => void {
+export function mountFloatingHUD(element: HTMLElement, options?: HUDOptions): () => void {
   const position = options?.position || "top-right";
   let unmounted = false;
 
@@ -444,10 +470,12 @@ export function mountFloatingHUD(
         slotCss += " top: 16px; left: 16px; flex-direction: column; align-items: flex-start;";
         break;
       case "bottom-right":
-        slotCss += " bottom: 16px; right: 16px; flex-direction: column-reverse; align-items: flex-end;";
+        slotCss +=
+          " bottom: 16px; right: 16px; flex-direction: column-reverse; align-items: flex-end;";
         break;
       case "bottom-left":
-        slotCss += " bottom: 16px; left: 16px; flex-direction: column-reverse; align-items: flex-start;";
+        slotCss +=
+          " bottom: 16px; left: 16px; flex-direction: column-reverse; align-items: flex-start;";
         break;
       case "top-right":
       default:
@@ -481,9 +509,7 @@ export function mountFloatingHUD(
  * message additions and triggers callback.
  * Returns disconnect function.
  */
-export function observeConversation(
-  callback: (node: HTMLElement) => void
-): () => void {
+export function observeConversation(callback: (node: HTMLElement) => void): () => void {
   let disconnected = false;
   let activeConv: HTMLElement | null = null;
   let convObserver: MutationObserver | null = null;
@@ -493,7 +519,12 @@ export function observeConversation(
     if (node.nodeType !== 1) return;
     const el = node as HTMLElement;
     if (el.getAttribute && el.getAttribute("data-testid") === "composer") return;
-    if (el.id === "child-1-composer" || el.id === "agy-hud-container" || el.id === "agy-header-dock") return;
+    if (
+      el.id === "child-1-composer" ||
+      el.id === "agy-hud-container" ||
+      el.id === "agy-header-dock"
+    )
+      return;
     if (el.closest && el.closest('[data-testid="composer"]')) return;
     try {
       callback(el);
@@ -504,8 +535,8 @@ export function observeConversation(
     if (disconnected) return;
     for (const mutation of mutations) {
       if (!mutation.addedNodes) continue;
-      for (let i = 0; i < mutation.addedNodes.length; i++) {
-        handleAddedNode(mutation.addedNodes[i]);
+      for (const node of mutation.addedNodes) {
+        handleAddedNode(node);
       }
     }
   };

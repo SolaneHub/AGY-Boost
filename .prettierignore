@@ -1,0 +1,17 @@
+# Package managers and dependencies
+node_modules/
+.pnpm-store/
+pnpm-lock.yaml
+
+# Build artifacts and binaries
+dist/
+dist-native/
+src/cli/embedded/
+
+# Git and coverage
+.git/
+coverage/
+
+# OS and temporary files
+.DS_Store
+*.log

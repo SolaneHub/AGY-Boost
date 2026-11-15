@@ -10,29 +10,50 @@
     "node": ">=22"
   },
   "scripts": {
-    "build:client": "pnpm --dir src/client run build && cp src/client/dist/agy-boost.js src/cli/embedded/runtime.js && mkdir -p dist && cp src/client/dist/agy-boost.js dist/agy-boost.js",
-    "build:go": "go build -trimpath -o dist/agy-boost ./src/cli",
-    "build:go:win": "GOOS=windows GOARCH=amd64 go build -trimpath -o dist/agy-boost.exe ./src/cli",
-    "build:go:linux": "GOOS=linux GOARCH=amd64 go build -trimpath -o dist/agy-boost-linux ./src/cli",
+    "build:client": "pnpm --dir src/client run build && node scripts/copy-runtime.mjs",
+    "build:go": "node scripts/build-go.mjs",
+    "build:go:win": "node scripts/build-go.mjs win",
+    "build:go:linux": "node scripts/build-go.mjs linux",
     "build": "pnpm run build:client && pnpm run build:go",
-    "build:all": "pnpm run build:client && pnpm run build:go && pnpm run build:go:win && pnpm run build:go:linux",
-    "typecheck": "pnpm --dir src/client run typecheck",
+    "build:all": "pnpm run build:client && node scripts/build-go.mjs all",
+    "typecheck": "pnpm run typecheck:all",
+    "typecheck:ts": "tsc --noEmit && pnpm --dir src/client run typecheck",
+    "typecheck:go": "node scripts/typecheck-go.mjs",
+    "typecheck:all": "pnpm run typecheck:ts && pnpm run typecheck:go",
+    "lint": "pnpm run lint:ts && pnpm run lint:go",
+    "lint:ts": "eslint .",
+    "lint:ts:fix": "eslint . --fix",
+    "lint:go": "node scripts/lint-go.mjs",
+    "lint:fix": "pnpm run lint:ts:fix && node scripts/format-go.mjs",
+    "format": "prettier --write . && node scripts/format-go.mjs",
+    "format:check": "prettier --check . && node scripts/format-go.mjs --check",
     "test:fast": "pnpm run typecheck && go test -short ./src/... && pnpm run test:client",
     "test:integration": "go test -v ./tests/...",
     "test:client": "pnpm --dir src/client run test",
-    "test:e2e": "node scripts/verify-flexbox-invariant.mjs",
+    "test:e2e": "pnpm run build:client && node scripts/verify-flexbox-invariant.mjs",
     "test": "go test -v ./src/... ./tests/...",
     "test:all": "pnpm run typecheck && go test -v ./src/... && pnpm run test:client && pnpm run test:integration && pnpm run test:e2e",
-    "check:fast": "pnpm run test:fast",
+    "check:fast": "pnpm run format:check && pnpm run lint && pnpm run test:fast",
     "status": "./dist/agy-boost status",
     "patch": "./dist/agy-boost patch --safe",
     "unpatch": "./dist/agy-boost unpatch",
     "daemon": "./dist/agy-boost daemon",
-    "check": "pnpm run test:all && pnpm run build"
+    "check": "pnpm run format:check && pnpm run lint && pnpm run test:all && pnpm run build"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@types/node": "^26.6.6",
     "esbuild": "^0.25.0",
-    "typescript": "^5.9.2"
+    "eslint": "^10.15.0",
+    "eslint-config-prettier": "^10.1.8",
+    "globals": "^17.14.0",
+    "prettier": "^3.10.1",
+    "typescript": "^5.9.2",
+    "typescript-eslint": "^8.72.2"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
   }
 }

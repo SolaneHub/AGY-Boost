@@ -1,5 +1,5 @@
 import fs from "node:fs";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
 import { transformSync } from "esbuild";
 
 export async function resolve(specifier, context, nextResolve) {

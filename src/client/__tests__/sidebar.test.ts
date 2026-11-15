@@ -23,13 +23,14 @@ describe("Sidebar Navigation & Active State Manager", () => {
 
   beforeEach(() => {
     while (document.body.childNodes.length > 0) {
-      document.body.childNodes[0].remove();
+      document.body.childNodes[0]?.remove();
     }
   });
 
   test("setNavItemActive adds active classes and removes inactive/hover classes", () => {
     const item = el("button", {
-      class: "bg-transparent text-secondary-foreground hover:bg-sidebar-muted hover:text-foreground",
+      class:
+        "bg-transparent text-secondary-foreground hover:bg-sidebar-muted hover:text-foreground",
     });
 
     setNavItemActive(item);
@@ -74,21 +75,40 @@ describe("Sidebar Navigation & Active State Manager", () => {
 
   test("updateSidebarActiveState switches active and inactive states between Mods, Customizations, Automations, and New Conversation", () => {
     const navItems = el("div", { "data-testid": "sidebar-navigation-items" });
-    const newChatBtn = el("a", {
-      "data-testid": "new-conversation-button",
-      class: "border border-border text-foreground bg-sidebar-secondary",
-    }, ["New Conversation"]);
-    const autoBtn = el("button", {
-      "data-testid": "automations-button",
-      class: "bg-transparent text-secondary-foreground hover:bg-sidebar-muted hover:text-foreground",
-    }, ["Automations"]);
-    const custBtn = el("button", {
-      class: "bg-transparent text-secondary-foreground hover:bg-sidebar-muted hover:text-foreground",
-    }, ["Customizations"]);
-    const modsBtn = el("button", {
-      "data-agy-boost-mods-btn": "true",
-      class: "bg-transparent text-secondary-foreground hover:bg-sidebar-muted hover:text-foreground",
-    }, ["Mods"]);
+    const newChatBtn = el(
+      "a",
+      {
+        "data-testid": "new-conversation-button",
+        class: "border border-border text-foreground bg-sidebar-secondary",
+      },
+      ["New Conversation"]
+    );
+    const autoBtn = el(
+      "button",
+      {
+        "data-testid": "automations-button",
+        class:
+          "bg-transparent text-secondary-foreground hover:bg-sidebar-muted hover:text-foreground",
+      },
+      ["Automations"]
+    );
+    const custBtn = el(
+      "button",
+      {
+        class:
+          "bg-transparent text-secondary-foreground hover:bg-sidebar-muted hover:text-foreground",
+      },
+      ["Customizations"]
+    );
+    const modsBtn = el(
+      "button",
+      {
+        "data-agy-boost-mods-btn": "true",
+        class:
+          "bg-transparent text-secondary-foreground hover:bg-sidebar-muted hover:text-foreground",
+      },
+      ["Mods"]
+    );
 
     navItems.appendChild(newChatBtn);
     navItems.appendChild(autoBtn);
@@ -148,8 +168,17 @@ describe("Sidebar Navigation & Active State Manager", () => {
     assert.ok(!custBtn.classList.contains("bg-sidebar-secondary"));
     assert.ok(custBtn.classList.contains("hover:bg-sidebar-muted"));
 
+    interface GlobalLocationScope {
+      window?: {
+        location?: {
+          pathname?: string;
+        };
+      };
+    }
+    const locScope = globalThis as unknown as GlobalLocationScope;
+
     // 6. User closes Mods via toggle (no target) while on /
-    (globalThis as any).window.location = { pathname: "/" };
+    locScope.window = { location: { pathname: "/" } };
     updateSidebarActiveState(false);
     assert.ok(newChatBtn.classList.contains("bg-sidebar-secondary"));
     assert.ok(!modsBtn.classList.contains("bg-sidebar-secondary"));
@@ -160,7 +189,7 @@ describe("Sidebar Navigation & Active State Manager", () => {
     assert.ok(custBtn.classList.contains("hover:bg-sidebar-muted"));
 
     // 7. User closes Mods via toggle (no target) while on /customizations
-    (globalThis as any).window.location = { pathname: "/customizations" };
+    locScope.window = { location: { pathname: "/customizations" } };
     updateSidebarActiveState(false);
     assert.ok(!newChatBtn.classList.contains("bg-sidebar-secondary"));
     assert.ok(newChatBtn.classList.contains("hover:bg-sidebar-secondary"));
@@ -171,7 +200,7 @@ describe("Sidebar Navigation & Active State Manager", () => {
     assert.ok(autoBtn.classList.contains("hover:bg-sidebar-muted"));
 
     // 8. User closes Mods via toggle while on /sidecars
-    (globalThis as any).window.location = { pathname: "/sidecars" };
+    locScope.window = { location: { pathname: "/sidecars" } };
     updateSidebarActiveState(false);
     assert.ok(!newChatBtn.classList.contains("bg-sidebar-secondary"));
     assert.ok(newChatBtn.classList.contains("hover:bg-sidebar-secondary"));
@@ -181,7 +210,7 @@ describe("Sidebar Navigation & Active State Manager", () => {
     assert.ok(custBtn.classList.contains("hover:bg-sidebar-muted"));
 
     // 9. User closes Mods via toggle while in conversation /c/test
-    (globalThis as any).window.location = { pathname: "/c/123" };
+    locScope.window = { location: { pathname: "/c/123" } };
     updateSidebarActiveState(false);
     assert.ok(!newChatBtn.classList.contains("bg-sidebar-secondary"));
     assert.ok(newChatBtn.classList.contains("hover:bg-sidebar-secondary"));

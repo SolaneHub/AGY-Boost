@@ -28,7 +28,8 @@ export const MARKETPLACE_CATALOG: MarketplaceMod[] = [
     name: "Effort Optimizer",
     category: "compute",
     badges: ["WASM", "GO", "OFFICIAL"],
-    description: "Fine-tune AI reasoning depth and token budgets in real-time. Control inference effort levels directly from your composer to balance response speed and analytical quality.",
+    description:
+      "Fine-tune AI reasoning depth and token budgets in real-time. Control inference effort levels directly from your composer to balance response speed and analytical quality.",
     iconBg: "bg-gradient-to-br from-amber-500/20 to-orange-500/10 text-amber-400",
     iconSvg: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>`,
     version: "1.0.0",
@@ -42,11 +43,13 @@ export const MARKETPLACE_CATALOG: MarketplaceMod[] = [
     commands: [
       {
         name: "/effort-optimizer",
-        description: "Fine-tune AI reasoning depth and token budgets in real-time. Control inference effort levels directly from your composer to balance response speed and analytical quality.",
+        description:
+          "Fine-tune AI reasoning depth and token budgets in real-time. Control inference effort levels directly from your composer to balance response speed and analytical quality.",
       },
       {
         name: "/effort-preset",
-        description: "Quick-switch reasoning depth between minimal, balanced, deep, and maximum reasoning effort presets.",
+        description:
+          "Quick-switch reasoning depth between minimal, balanced, deep, and maximum reasoning effort presets.",
       },
     ],
     readme: `### Overview
@@ -65,7 +68,8 @@ Use the composer button docked beside the model selector or trigger /effort-opti
     name: "Stream Accelerator",
     category: "compute",
     badges: ["WASM", "FAST"],
-    description: "High-throughput SSE buffer engine that eliminates stream stutter. Optimizes chunk processing and markdown rendering for instant large-scale code generations.",
+    description:
+      "High-throughput SSE buffer engine that eliminates stream stutter. Optimizes chunk processing and markdown rendering for instant large-scale code generations.",
     iconBg: "bg-gradient-to-br from-blue-500/20 to-cyan-500/10 text-blue-400",
     iconSvg: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>`,
     version: "1.1.0",
@@ -79,7 +83,8 @@ Use the composer button docked beside the model selector or trigger /effort-opti
     commands: [
       {
         name: "/stream-accel",
-        description: "High-throughput SSE buffer engine that eliminates stream stutter. Optimizes chunk processing and markdown rendering for instant large-scale code generations.",
+        description:
+          "High-throughput SSE buffer engine that eliminates stream stutter. Optimizes chunk processing and markdown rendering for instant large-scale code generations.",
       },
       {
         name: "/stream-stats",
@@ -102,7 +107,8 @@ Runs natively in the client runtime with zero external dependencies.`,
     name: "AST Context Compressor",
     category: "compute",
     badges: ["WASM"],
-    description: "Intelligent syntax tree summarizer that reduces context window footprint by up to 40%. Compresses symbol tables and boilerplate while preserving full semantic precision.",
+    description:
+      "Intelligent syntax tree summarizer that reduces context window footprint by up to 40%. Compresses symbol tables and boilerplate while preserving full semantic precision.",
     iconBg: "bg-gradient-to-br from-purple-500/20 to-indigo-500/10 text-purple-400",
     iconSvg: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/><line x1="14" y1="10" x2="21" y2="3"/><line x1="3" y1="21" x2="10" y2="14"/></svg>`,
     version: "1.0.4",
@@ -116,7 +122,8 @@ Runs natively in the client runtime with zero external dependencies.`,
     commands: [
       {
         name: "/context-compressor",
-        description: "Intelligent syntax tree summarizer that reduces context window footprint by up to 40%. Compresses symbol tables and boilerplate while preserving full semantic precision.",
+        description:
+          "Intelligent syntax tree summarizer that reduces context window footprint by up to 40%. Compresses symbol tables and boilerplate while preserving full semantic precision.",
       },
       {
         name: "/context-stats",
@@ -139,7 +146,8 @@ Parses 50,000 lines of code in under 12ms via client-side WebAssembly.`,
     name: "Vector Embeddings Cache",
     category: "compute",
     badges: ["WASM"],
-    description: "Fast in-memory SIMD vector index for local codebases. Enables instant semantic code search, symbol discovery, and relevant context retrieval with zero cloud latency.",
+    description:
+      "Fast in-memory SIMD vector index for local codebases. Enables instant semantic code search, symbol discovery, and relevant context retrieval with zero cloud latency.",
     iconBg: "bg-gradient-to-br from-emerald-500/20 to-teal-500/10 text-emerald-400",
     iconSvg: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m4.93 4.93 4.24 4.24"/><path d="m14.83 9.17 4.24-4.24"/><path d="m14.83 14.83 4.24 4.24"/><path d="m9.17 14.83-4.24 4.24"/></svg>`,
     version: "0.9.2",
@@ -153,7 +161,8 @@ Parses 50,000 lines of code in under 12ms via client-side WebAssembly.`,
     commands: [
       {
         name: "/vector-cache",
-        description: "Fast in-memory SIMD vector index for local codebases. Enables instant semantic code search, symbol discovery, and relevant context retrieval with zero cloud latency.",
+        description:
+          "Fast in-memory SIMD vector index for local codebases. Enables instant semantic code search, symbol discovery, and relevant context retrieval with zero cloud latency.",
       },
       {
         name: "/vector-index",
@@ -175,7 +184,8 @@ Vector Embeddings Cache provides local, ultra-low-latency semantic search over y
     name: "OLED Midnight Pure Black",
     category: "theme",
     badges: ["THEME"],
-    description: "True pitch-black palette engineered specifically for OLED and high-contrast displays. Replaces dark grays with pure #000000 tones across all Antigravity surfaces.",
+    description:
+      "True pitch-black palette engineered specifically for OLED and high-contrast displays. Replaces dark grays with pure #000000 tones across all Antigravity surfaces.",
     iconBg: "bg-gradient-to-br from-zinc-800 to-black text-zinc-100",
     iconSvg: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>`,
     version: "1.2.0",
@@ -189,7 +199,8 @@ Vector Embeddings Cache provides local, ultra-low-latency semantic search over y
     commands: [
       {
         name: "/theme-oled",
-        description: "True pitch-black palette engineered specifically for OLED and high-contrast displays. Replaces dark grays with pure #000000 tones across all Antigravity surfaces.",
+        description:
+          "True pitch-black palette engineered specifically for OLED and high-contrast displays. Replaces dark grays with pure #000000 tones across all Antigravity surfaces.",
       },
       {
         name: "/theme-accent",
@@ -209,7 +220,8 @@ A purpose-built high-contrast palette that turns Antigravity's dark grays into p
     name: "Compact Density Mode",
     category: "theme",
     badges: ["THEME", "UI"],
-    description: "High-density interface mode with optimized paddings and tighter typography. Maximizes screen real estate for complex multi-file chats and smaller laptop screens.",
+    description:
+      "High-density interface mode with optimized paddings and tighter typography. Maximizes screen real estate for complex multi-file chats and smaller laptop screens.",
     iconBg: "bg-gradient-to-br from-rose-500/20 to-pink-500/10 text-rose-400",
     iconSvg: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>`,
     version: "1.0.1",
@@ -223,7 +235,8 @@ A purpose-built high-contrast palette that turns Antigravity's dark grays into p
     commands: [
       {
         name: "/theme-compact",
-        description: "High-density interface mode with optimized paddings and tighter typography. Maximizes screen real estate for complex multi-file chats and smaller laptop screens.",
+        description:
+          "High-density interface mode with optimized paddings and tighter typography. Maximizes screen real estate for complex multi-file chats and smaller laptop screens.",
       },
       {
         name: "/density-toggle",
@@ -243,7 +256,8 @@ Designed for developers working on smaller screens or managing complex multi-tur
     name: "Status Bar Telemetry",
     category: "theme",
     badges: ["UI"],
-    description: "Live telemetry HUD docked in the window status bar. Monitors token generation speed, round-trip API latency, active reasoning tokens, and local daemon memory usage.",
+    description:
+      "Live telemetry HUD docked in the window status bar. Monitors token generation speed, round-trip API latency, active reasoning tokens, and local daemon memory usage.",
     iconBg: "bg-gradient-to-br from-amber-500/20 to-yellow-500/10 text-amber-400",
     iconSvg: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20v-6M6 20V10M18 20V4"/></svg>`,
     version: "1.0.0",
@@ -257,7 +271,8 @@ Designed for developers working on smaller screens or managing complex multi-tur
     commands: [
       {
         name: "/ui-telemetry",
-        description: "Live telemetry HUD docked in the window status bar. Monitors token generation speed, round-trip API latency, active reasoning tokens, and local daemon memory usage.",
+        description:
+          "Live telemetry HUD docked in the window status bar. Monitors token generation speed, round-trip API latency, active reasoning tokens, and local daemon memory usage.",
       },
       {
         name: "/telemetry-reset",
@@ -279,7 +294,8 @@ Provides real-time engineering metrics directly within the Antigravity status ba
     name: "Local LLM Bridge",
     category: "sidecar",
     badges: ["GO", "SIDECAR"],
-    description: "Zero-config bridge connecting local Ollama, llama.cpp, LM Studio, and vLLM endpoints directly into Antigravity for private, offline, and hybrid model execution.",
+    description:
+      "Zero-config bridge connecting local Ollama, llama.cpp, LM Studio, and vLLM endpoints directly into Antigravity for private, offline, and hybrid model execution.",
     iconBg: "bg-gradient-to-br from-sky-500/20 to-blue-500/10 text-sky-400",
     iconSvg: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/></svg>`,
     version: "2.0.0",
@@ -293,7 +309,8 @@ Provides real-time engineering metrics directly within the Antigravity status ba
     commands: [
       {
         name: "/local-llm-bridge",
-        description: "Zero-config bridge connecting local Ollama, llama.cpp, LM Studio, and vLLM endpoints directly into Antigravity for private, offline, and hybrid model execution.",
+        description:
+          "Zero-config bridge connecting local Ollama, llama.cpp, LM Studio, and vLLM endpoints directly into Antigravity for private, offline, and hybrid model execution.",
       },
       {
         name: "/local-models",
@@ -313,7 +330,8 @@ Route Antigravity requests seamlessly to your local models running on Ollama, ll
     name: "Git Worktree Assistant",
     category: "sidecar",
     badges: ["GO", "SIDECAR"],
-    description: "Isolated background engine managing simultaneous Git worktrees. Switch branches and test parallel agent solutions without triggering full workspace re-indexing.",
+    description:
+      "Isolated background engine managing simultaneous Git worktrees. Switch branches and test parallel agent solutions without triggering full workspace re-indexing.",
     iconBg: "bg-gradient-to-br from-teal-500/20 to-emerald-500/10 text-teal-400",
     iconSvg: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></svg>`,
     version: "1.0.2",
@@ -327,7 +345,8 @@ Route Antigravity requests seamlessly to your local models running on Ollama, ll
     commands: [
       {
         name: "/git-worktree",
-        description: "Isolated background engine managing simultaneous Git worktrees. Switch branches and test parallel agent solutions without triggering full workspace re-indexing.",
+        description:
+          "Isolated background engine managing simultaneous Git worktrees. Switch branches and test parallel agent solutions without triggering full workspace re-indexing.",
       },
       {
         name: "/worktree-list",

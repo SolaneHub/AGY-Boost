@@ -18,9 +18,10 @@ import path from "node:path";
 // from a file:// URL on a different port.
 let defaultPort = 9333;
 try {
-  const appData = process.platform === "darwin"
-    ? path.join(process.env["HOME"] ?? "", "Library", "Application Support")
-    : (process.env["APPDATA"] ?? "");
+  const appData =
+    process.platform === "darwin"
+      ? path.join(process.env["HOME"] ?? "", "Library", "Application Support")
+      : (process.env["APPDATA"] ?? "");
   const activePortFile = path.join(appData, "Antigravity", "DevToolsActivePort");
   const content = readFileSync(activePortFile, "utf8");
   const parsed = parseInt(content.split("\n")[0].trim(), 10);
@@ -51,7 +52,9 @@ async function waitForPage(timeoutMs = 90_000) {
   while (Date.now() < deadline) {
     try {
       const targets = await listTargets();
-      const page = targets.find((target) => target.type === "page" && String(target.url).startsWith(HOST_URL_PREFIX));
+      const page = targets.find(
+        (target) => target.type === "page" && String(target.url).startsWith(HOST_URL_PREFIX)
+      );
       if (page) return page;
       lastError = `no page on ${HOST_URL_PREFIX}* yet (${targets.length} target(s))`;
     } catch (error) {
@@ -67,7 +70,11 @@ async function send(webSocketUrl, method, params = {}) {
   try {
     await new Promise((resolve, reject) => {
       socket.addEventListener("open", resolve, { once: true });
-      socket.addEventListener("error", () => reject(new Error("Could not open the DevTools socket.")), { once: true });
+      socket.addEventListener(
+        "error",
+        () => reject(new Error("Could not open the DevTools socket.")),
+        { once: true }
+      );
     });
 
     const id = 1;
@@ -91,7 +98,10 @@ async function send(webSocketUrl, method, params = {}) {
 const [command = "shot", argument] = process.argv.slice(2);
 
 if (command === "launch") {
-  spawn(executable, [`--remote-debugging-port=${PORT}`], { detached: true, stdio: "ignore" }).unref();
+  spawn(executable, [`--remote-debugging-port=${PORT}`], {
+    detached: true,
+    stdio: "ignore",
+  }).unref();
   console.log(`Launching Antigravity with remote debugging on ${PORT}…`);
   const page = await waitForPage();
   console.log(`Ready: ${page.url}`);
@@ -104,7 +114,11 @@ if (command === "launch") {
   process.exit(0);
 } else if (command === "eval" || command === "run") {
   if (!argument) {
-    console.error(command === "run" ? "Provide a file to evaluate." : 'Provide an expression, for example: eval "document.title"');
+    console.error(
+      command === "run"
+        ? "Provide a file to evaluate."
+        : 'Provide an expression, for example: eval "document.title"'
+    );
     process.exit(1);
   }
   // Wrapped so a file can use statements and `return` rather than one expression.
@@ -113,7 +127,7 @@ if (command === "launch") {
   const result = await send(page.webSocketDebuggerUrl, "Runtime.evaluate", {
     expression: `(async () => { ${body} })()`,
     returnByValue: true,
-    awaitPromise: true
+    awaitPromise: true,
   });
   if (result.exceptionDetails) {
     console.error(result.exceptionDetails.exception?.description ?? result.exceptionDetails.text);
