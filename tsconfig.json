@@ -18,6 +18,6 @@
     "types": ["node"],
     "noEmit": true
   },
-  "include": ["src/sdk/**/*.d.ts", "src/client/**/*.ts"],
+  "include": ["src/sdk/**/*.d.ts", "src/client/**/*.ts", "tests/**/*.ts"],
   "exclude": ["**/node_modules", "**/dist", "src/cli/embedded"]
 }

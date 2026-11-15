@@ -4,7 +4,7 @@ import {
   MARKETPLACE_CATALOG,
   getMarketplaceMod,
   type MarketplaceMod,
-} from "../ui/marketplace/catalog.js";
+} from "../../src/client/ui/marketplace/catalog.js";
 
 describe("Marketplace Catalog (MARKETPLACE_CATALOG)", () => {
   const VALID_CATEGORIES = new Set<MarketplaceMod["category"]>(["compute", "theme", "sidecar"]);

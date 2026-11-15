@@ -1,14 +1,14 @@
 import { test, describe, before, after, beforeEach } from "node:test";
 import assert from "node:assert/strict";
-import { setupMockDOM } from "./mock-dom.js";
+import { setupMockDOM } from "../harness/mock-dom.js";
 import {
   setNavItemActive,
   setNavItemInactive,
   setNewChatActive,
   setNewChatInactive,
   updateSidebarActiveState,
-} from "../ui/sidebar.js";
-import { el } from "../ui/dom.js";
+} from "../../src/client/ui/sidebar.js";
+import { el } from "../../src/client/ui/dom.js";
 
 describe("Sidebar Navigation & Active State Manager", () => {
   let teardown: () => void;

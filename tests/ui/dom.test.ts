@@ -1,7 +1,7 @@
 import { test, describe, before, after } from "node:test";
 import assert from "node:assert/strict";
-import { setupMockDOM } from "./mock-dom.js";
-import { el } from "../ui/dom.js";
+import { setupMockDOM } from "../harness/mock-dom.js";
+import { el } from "../../src/client/ui/dom.js";
 
 describe("DOM Builder (el)", () => {
   let teardown: () => void;

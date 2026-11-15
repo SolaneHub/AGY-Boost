@@ -1,6 +1,6 @@
 import { test, describe } from "node:test";
 import assert from "node:assert/strict";
-import { loadWasm } from "../wasm/loader.js";
+import { loadWasm } from "../../src/client/wasm/loader.js";
 
 describe("Wasm Loader (loadWasm)", () => {
   // Minimal valid WebAssembly binary module (8 bytes: magic number \0asm and version 1)

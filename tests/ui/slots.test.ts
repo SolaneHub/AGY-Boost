@@ -1,6 +1,6 @@
 import { test, describe, before, after, beforeEach } from "node:test";
 import assert from "node:assert/strict";
-import { setupMockDOM } from "./mock-dom.js";
+import { setupMockDOM } from "../harness/mock-dom.js";
 import {
   mountFloatingHUD,
   mountHeader,
@@ -10,8 +10,8 @@ import {
   isMac,
   parseCombo,
   matchesKeyboardEvent,
-} from "../ui/slots.js";
-import { el } from "../ui/dom.js";
+} from "../../src/client/ui/slots.js";
+import { el } from "../../src/client/ui/dom.js";
 
 describe("Slots & UI Overlay Engine", () => {
   let teardown: () => void;

@@ -2,15 +2,15 @@ import { test, describe, before, after, beforeEach, afterEach } from "node:test"
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
-import { setupMockDOM } from "./mock-dom.js";
+import { setupMockDOM } from "../harness/mock-dom.js";
 import {
   syncModScripts,
   unloadModScript,
   resetModScripts,
   isModScriptActive,
-} from "../ui/mods-runner.js";
-import { DaemonBridge, ModInfo } from "../bridge/daemon.js";
-import { mountHeader, mountComposer } from "../ui/slots.js";
+} from "../../src/client/ui/mods-runner.js";
+import { DaemonBridge, ModInfo } from "../../src/client/bridge/daemon.js";
+import { mountHeader, mountComposer } from "../../src/client/ui/slots.js";
 
 interface TestRunnerGlobals {
   AGYBoost?: {

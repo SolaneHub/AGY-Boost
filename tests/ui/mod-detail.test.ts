@@ -1,9 +1,9 @@
 import { test, describe, before, after, beforeEach } from "node:test";
 import assert from "node:assert/strict";
-import { setupMockDOM } from "./mock-dom.js";
-import { el } from "../ui/dom.js";
-import { DaemonBridge } from "../bridge/daemon.js";
-import { renderModDetail } from "../ui/marketplace/mod-detail.js";
+import { setupMockDOM } from "../harness/mock-dom.js";
+import { el } from "../../src/client/ui/dom.js";
+import { DaemonBridge } from "../../src/client/bridge/daemon.js";
+import { renderModDetail } from "../../src/client/ui/marketplace/mod-detail.js";
 
 describe("Mod Detail View (renderModDetail)", () => {
   let teardown: () => void;

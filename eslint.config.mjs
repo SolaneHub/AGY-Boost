@@ -55,8 +55,9 @@ export default tseslint.config(
     },
   },
   {
-    files: ["src/client/__tests__/**/*.{ts,js,mjs}"],
+    files: ["tests/**/*.{ts,js,mjs}"],
     rules: {
+      "no-console": "off",
       "@typescript-eslint/no-this-alias": "off",
       "@typescript-eslint/no-dynamic-delete": "off",
       "@typescript-eslint/no-empty-function": "off",
@@ -77,7 +78,7 @@ export default tseslint.config(
     },
   },
   {
-    files: ["scripts/**/*.{js,mjs}", "tests/**/*.{js,mjs}"],
+    files: ["scripts/**/*.{js,mjs}"],
     rules: {
       "no-console": "off",
       "@typescript-eslint/no-empty-function": "off",

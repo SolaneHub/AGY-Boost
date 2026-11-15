@@ -1,6 +1,6 @@
 import { test, describe, beforeEach, afterEach } from "node:test";
 import assert from "node:assert/strict";
-import { DaemonBridge } from "../bridge/daemon.js";
+import { DaemonBridge } from "../../src/client/bridge/daemon.js";
 
 interface GlobalTokenScope {
   __AGY_TOKEN__?: string;
