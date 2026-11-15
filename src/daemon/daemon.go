@@ -264,7 +264,10 @@ func (s *DaemonServer) handleModFile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	cleanFile := filepath.Clean(file)
-	if filepath.IsAbs(cleanFile) || strings.HasPrefix(cleanFile, "..") || strings.Contains(cleanFile, "..") {
+	if filepath.IsAbs(cleanFile) || strings.HasPrefix(cleanFile, "..") || strings.Contains(cleanFile, "..") ||
+		strings.HasPrefix(file, "/") || strings.HasPrefix(file, "\\") ||
+		strings.HasPrefix(cleanFile, "/") || strings.HasPrefix(cleanFile, "\\") ||
+		filepath.VolumeName(cleanFile) != "" {
 		http.Error(w, "Invalid file path", http.StatusForbidden)
 		return
 	}
@@ -405,18 +408,17 @@ func (s *DaemonServer) handleDaemonSpawn(w http.ResponseWriter, r *http.Request)
 	}
 
 	cleanBin := filepath.Clean(req.BinaryPath)
-	if req.BinaryPath == "" || strings.Contains(cleanBin, "..") {
-		http.Error(w, "Invalid binary path", http.StatusForbidden)
+	if req.BinaryPath == "" || strings.Contains(cleanBin, "..") ||
+		filepath.IsAbs(req.BinaryPath) || filepath.IsAbs(cleanBin) ||
+		strings.HasPrefix(req.BinaryPath, "/") || strings.HasPrefix(req.BinaryPath, "\\") ||
+		strings.HasPrefix(cleanBin, "/") || strings.HasPrefix(cleanBin, "\\") ||
+		filepath.VolumeName(cleanBin) != "" {
+		http.Error(w, "Executable must reside inside mod directory", http.StatusForbidden)
 		return
 	}
 
 	modDir := filepath.Join(s.modsDir, cleanModID)
-	var execPath string
-	if filepath.IsAbs(cleanBin) {
-		execPath = cleanBin
-	} else {
-		execPath = filepath.Join(modDir, cleanBin)
-	}
+	execPath := filepath.Join(modDir, cleanBin)
 
 	// Executable MUST reside inside the mod's specific directory
 	rel, err := filepath.Rel(modDir, execPath)
