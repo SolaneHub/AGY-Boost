@@ -60,7 +60,7 @@ func TestAGYBoostLifecycleE2E(t *testing.T) {
 	}
 
 	// Verify original app.asar is not a bootstrap asar
-	isBootstrap, err := patcher.IsBootstrapAsar(info.CurrentAsar)
+	isBootstrap, err := host.IsBootstrapAsar(info.CurrentAsar)
 	if err != nil {
 		t.Fatalf("[Test 1] failed to inspect app.asar: %v", err)
 	}
@@ -77,7 +77,7 @@ func TestAGYBoostLifecycleE2E(t *testing.T) {
 	}
 
 	// Verify app.asar is now a bootstrap packer
-	isBootstrapPatched, err := patcher.IsBootstrapAsar(info.CurrentAsar)
+	isBootstrapPatched, err := host.IsBootstrapAsar(info.CurrentAsar)
 	if err != nil {
 		t.Fatalf("[Test 2] failed to inspect patched app.asar: %v", err)
 	}

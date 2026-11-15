@@ -119,7 +119,44 @@ func TestDaemonHandlers(t *testing.T) {
 		t.Errorf("expected mod to be disabled, got %v", modsAfter[0].Enabled)
 	}
 
-	// 5. Test /daemon/spawn binary location enforcement
+	// 5. Test /mods/open-folder
+	// Method not allowed for GET
+	reqOpenGet := httptest.NewRequest("GET", "/mods/open-folder", nil)
+	wOpenGet := httptest.NewRecorder()
+	server.handleModOpenFolder(wOpenGet, reqOpenGet)
+	if wOpenGet.Code != http.StatusMethodNotAllowed {
+		t.Errorf("expected 405 Method Not Allowed for GET /mods/open-folder, got %d", wOpenGet.Code)
+	}
+
+	// POST /mods/open-folder
+	openFolderCalled := false
+	server.openFolderFunc = func(dir string) error {
+		openFolderCalled = true
+		if dir != modsDir {
+			t.Errorf("expected openFolderFunc dir %q, got %q", modsDir, dir)
+		}
+		return nil
+	}
+
+	reqOpenPost := httptest.NewRequest("POST", "/mods/open-folder", nil)
+	wOpenPost := httptest.NewRecorder()
+	server.handleModOpenFolder(wOpenPost, reqOpenPost)
+	if wOpenPost.Code != http.StatusOK {
+		t.Errorf("expected 200 OK for POST /mods/open-folder, got %d", wOpenPost.Code)
+	}
+	if !openFolderCalled {
+		t.Errorf("expected openFolderFunc to be called")
+	}
+
+	var openResp map[string]any
+	if err := json.Unmarshal(wOpenPost.Body.Bytes(), &openResp); err != nil {
+		t.Fatalf("failed to decode open-folder response: %v", err)
+	}
+	if openResp["ok"] != true || openResp["path"] != modsDir {
+		t.Errorf("unexpected open-folder response: %v", openResp)
+	}
+
+	// 6. Test /daemon/spawn binary location enforcement
 	// Attempt spawn of external binary (e.g. system binary or outside mod dir)
 	spawnOutsideBody, _ := json.Marshal(map[string]any{
 		"modId":      "sample-mod",
@@ -210,6 +247,14 @@ func TestDaemonAuthAndCORS(t *testing.T) {
 		t.Errorf("expected 200 OK for valid token, got %d", wModsGoodToken.Code)
 	}
 
+	// 4b. /mods/open-folder without token -> 401 Unauthorized
+	reqOpenNoToken := httptest.NewRequest("POST", "/mods/open-folder", nil)
+	wOpenNoToken := httptest.NewRecorder()
+	handler.ServeHTTP(wOpenNoToken, reqOpenNoToken)
+	if wOpenNoToken.Code != http.StatusUnauthorized {
+		t.Errorf("expected 401 Unauthorized for /mods/open-folder without token, got %d", wOpenNoToken.Code)
+	}
+
 	// 5. CORS check: localhost and 127.0.0.1 allowed
 	allowedOrigins := []string{
 		"http://localhost:3000",
@@ -249,11 +294,32 @@ func TestDaemonAuthAndCORS(t *testing.T) {
 }
 
 func TestNewDaemonServerToken(t *testing.T) {
+	tempDir := t.TempDir()
+	t.Setenv("AGY_BOOST_USER_DATA", tempDir)
+
 	srv, err := NewDaemonServer(42042)
 	if err != nil {
 		t.Fatalf("failed to create daemon server: %v", err)
 	}
 	if len(srv.Token) != 64 {
 		t.Errorf("expected 64 character hex token (32 bytes), got length %d", len(srv.Token))
+	}
+
+	tokenPath := filepath.Join(tempDir, ".token")
+	data, err := os.ReadFile(tokenPath)
+	if err != nil {
+		t.Fatalf("failed to read token from temp dir: %v", err)
+	}
+	if string(data) != srv.Token {
+		t.Errorf("expected saved token to match server token: got %s, want %s", string(data), srv.Token)
+	}
+
+	// Calling NewDaemonServer again should reuse the existing token
+	srv2, err := NewDaemonServer(42042)
+	if err != nil {
+		t.Fatalf("failed to create second daemon server: %v", err)
+	}
+	if srv2.Token != srv.Token {
+		t.Errorf("expected second daemon server to reuse existing token: got %s, want %s", srv2.Token, srv.Token)
 	}
 }

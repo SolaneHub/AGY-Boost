@@ -104,4 +104,60 @@ describe("DaemonBridge", () => {
     const success = await bridge.toggleMod("unknown-mod", true);
     assert.equal(success, false);
   });
+
+  test("spawn and kill forward to spawnDaemon and killDaemon with global defaults", async () => {
+    mockFetchHandler = async (url, init) => {
+      if (url.endsWith("/daemon/spawn")) {
+        const body = JSON.parse(init?.body as string);
+        assert.equal(body.modId, "global");
+        assert.equal(body.binaryPath, "./bin");
+        return new Response(JSON.stringify({ ok: true, pid: 1234 }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+      if (url.endsWith("/daemon/kill")) {
+        const body = JSON.parse(init?.body as string);
+        assert.equal(body.modId, "global");
+        return new Response(JSON.stringify({ ok: true }), { status: 200 });
+      }
+      return new Response("Not found", { status: 404 });
+    };
+
+    const bridge = new DaemonBridge(42042);
+    const spawnRes = await bridge.spawn("./bin");
+    assert.equal(spawnRes.ok, true);
+    assert.equal(spawnRes.pid, 1234);
+
+    const killRes = await bridge.kill();
+    assert.equal(killRes, true);
+  });
+
+  test("openModsFolder sends POST to /mods/open-folder and returns ok and path", async () => {
+    (globalThis as any).__AGY_TOKEN__ = "test-token-open";
+
+    mockFetchHandler = async (url, init) => {
+      assert.match(url, /\/mods\/open-folder$/);
+      assert.equal(init?.method, "POST");
+      const headers = (init?.headers as Record<string, string>) || {};
+      assert.equal(headers["X-AGY-Token"], "test-token-open");
+      return new Response(JSON.stringify({ ok: true, path: "/home/user/mods" }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+    };
+
+    const bridge = new DaemonBridge(42042);
+    const res = await bridge.openModsFolder();
+    assert.equal(res.ok, true);
+    assert.equal(res.path, "/home/user/mods");
+  });
+
+  test("openModsFolder returns { ok: false } on server error or failure", async () => {
+    mockFetchHandler = async () => new Response("Internal Server Error", { status: 500 });
+
+    const bridge = new DaemonBridge(42042);
+    const res = await bridge.openModsFolder();
+    assert.equal(res.ok, false);
+  });
 });

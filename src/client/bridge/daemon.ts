@@ -22,7 +22,19 @@ export class DaemonBridge {
   }
 
   private getAuthHeaders(): Record<string, string> {
-    const token = (globalThis as any).__AGY_TOKEN__;
+    let token = (globalThis as any).__AGY_TOKEN__;
+    if (!token && typeof document !== "undefined" && document.documentElement?.dataset?.agyToken) {
+      token = document.documentElement.dataset.agyToken;
+    }
+    if (!token && typeof localStorage !== "undefined") {
+      try {
+        token = localStorage.getItem("__AGY_TOKEN__");
+      } catch {}
+    } else if (token && typeof localStorage !== "undefined") {
+      try {
+        localStorage.setItem("__AGY_TOKEN__", token);
+      } catch {}
+    }
     const headers: Record<string, string> = {};
     if (token) {
       headers["X-AGY-Token"] = token;
@@ -80,6 +92,30 @@ export class DaemonBridge {
     } catch {
       return null;
     }
+  }
+
+  async openModsFolder(): Promise<{ ok: boolean; path?: string }> {
+    try {
+      const res = await fetch(`${this.baseUrl}/mods/open-folder`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...this.getAuthHeaders(),
+        },
+      });
+      if (!res.ok) return { ok: false };
+      return await res.json();
+    } catch {
+      return { ok: false };
+    }
+  }
+
+  async spawn(binaryPath: string, args: string[] = []): Promise<{ ok: boolean; pid?: number }> {
+    return this.spawnDaemon("global", binaryPath, args);
+  }
+
+  async kill(modId = "global"): Promise<boolean> {
+    return this.killDaemon(modId);
   }
 
   async spawnDaemon(modId: string, binaryPath: string, args: string[] = []): Promise<{ ok: boolean; pid?: number }> {

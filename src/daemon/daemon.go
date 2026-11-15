@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"time"
@@ -33,14 +34,15 @@ type ModManifest struct {
 }
 
 type DaemonServer struct {
-	Port      int
-	Token     string
-	startTime time.Time
-	modsDir   string
-	procsMu   sync.Mutex
-	procs     map[string]*exec.Cmd
-	stateMu   sync.RWMutex
-	disabled  map[string]bool
+	Port           int
+	Token          string
+	startTime      time.Time
+	modsDir        string
+	openFolderFunc func(dir string) error
+	procsMu        sync.Mutex
+	procs          map[string]*exec.Cmd
+	stateMu        sync.RWMutex
+	disabled       map[string]bool
 }
 
 func generateSecureToken() (string, error) {
@@ -80,14 +82,19 @@ func NewDaemonServerWithDir(port int, customUserDataDir string) (*DaemonServer, 
 	modsDir := filepath.Join(userData, "mods")
 	_ = os.MkdirAll(modsDir, 0755)
 
-	token, err := generateSecureToken()
-	if err != nil {
-		return nil, fmt.Errorf("failed to generate secure token: %w", err)
-	}
-
 	tokenPath := filepath.Join(userData, ".token")
-	if err := os.WriteFile(tokenPath, []byte(token), 0600); err != nil {
-		return nil, fmt.Errorf("failed to save security token: %w", err)
+	var token string
+	if data, err := os.ReadFile(tokenPath); err == nil && len(strings.TrimSpace(string(data))) == 64 {
+		token = strings.TrimSpace(string(data))
+	} else {
+		var err error
+		token, err = generateSecureToken()
+		if err != nil {
+			return nil, fmt.Errorf("failed to generate secure token: %w", err)
+		}
+		if err := os.WriteFile(tokenPath, []byte(token), 0600); err != nil {
+			return nil, fmt.Errorf("failed to save security token: %w", err)
+		}
 	}
 
 	server := &DaemonServer{
@@ -142,6 +149,7 @@ func (s *DaemonServer) routes() http.Handler {
 	mux.HandleFunc("/health", cors(s.handleHealth))
 	mux.HandleFunc("/mods", cors(auth(s.handleMods)))
 	mux.HandleFunc("/mods/toggle", cors(auth(s.handleModToggle)))
+	mux.HandleFunc("/mods/open-folder", cors(auth(s.handleModOpenFolder)))
 	mux.HandleFunc("/mods/file", cors(auth(s.handleModFile)))
 	mux.HandleFunc("/daemon/spawn", cors(auth(s.handleDaemonSpawn)))
 	mux.HandleFunc("/daemon/kill", cors(auth(s.handleDaemonKill)))
@@ -206,6 +214,39 @@ func (s *DaemonServer) handleModToggle(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]any{"ok": true, "id": req.ID, "enabled": req.Enabled})
+}
+
+func (s *DaemonServer) handleModOpenFolder(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Ensure mods directory exists before opening
+	_ = os.MkdirAll(s.modsDir, 0755)
+
+	if s.openFolderFunc != nil {
+		_ = s.openFolderFunc(s.modsDir)
+	} else {
+		var cmd *exec.Cmd
+		switch runtime.GOOS {
+		case "windows":
+			cmd = exec.Command("explorer", s.modsDir)
+		case "darwin":
+			cmd = exec.Command("open", s.modsDir)
+		default:
+			cmd = exec.Command("xdg-open", s.modsDir)
+		}
+		if cmd != nil {
+			_ = cmd.Start()
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]any{
+		"ok":   true,
+		"path": s.modsDir,
+	})
 }
 
 func (s *DaemonServer) handleModFile(w http.ResponseWriter, r *http.Request) {

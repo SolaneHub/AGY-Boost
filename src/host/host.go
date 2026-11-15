@@ -118,7 +118,7 @@ func inspectCandidate(root string) (*HostInfo, error) {
 		if data, err := os.ReadFile(info.MarkerPath); err == nil {
 			var marker MarkerData
 			if json.Unmarshal(data, &marker) == nil && marker.AGYBoostVersion != "" {
-				if isBootstrap, err := isAsarBootstrap(info.CurrentAsar); err == nil && isBootstrap {
+				if isBootstrap, err := IsBootstrapAsar(info.CurrentAsar); err == nil && isBootstrap {
 					info.IsPatched = true
 					info.Version = marker.HostVersion
 				}
@@ -133,7 +133,8 @@ type asarHeaderCheck struct {
 	Files map[string]interface{} `json:"files"`
 }
 
-func isAsarBootstrap(asarPath string) (bool, error) {
+// IsBootstrapAsar inspects an Electron .asar archive and checks if it contains "bootstrap.js".
+func IsBootstrapAsar(asarPath string) (bool, error) {
 	f, err := os.Open(asarPath)
 	if err != nil {
 		return false, err

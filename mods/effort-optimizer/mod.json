@@ -1,0 +1,9 @@
+{
+  "id": "effort-optimizer",
+  "name": "Effort Optimizer",
+  "version": "1.0.0",
+  "description": "Fine-tune AI reasoning depth and token budgets in real-time. Control inference effort levels directly from your composer to balance response speed and analytical quality.",
+  "author": "AGY Boost Team",
+  "main": "index.js",
+  "enabled": true
+}

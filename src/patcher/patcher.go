@@ -32,7 +32,7 @@ func Apply(info *host.HostInfo, runtimeJS []byte) error {
 		return fmt.Errorf("target app.asar not found at %s", currentAsar)
 	}
 
-	isBootstrap, err := IsBootstrapAsar(currentAsar)
+	isBootstrap, err := host.IsBootstrapAsar(currentAsar)
 	if err != nil {
 		return fmt.Errorf("failed to inspect app.asar: %w", err)
 	}
@@ -108,21 +108,6 @@ function setupSession(sess) {
       callback({ responseHeaders });
     });
   } catch {}
-
-  try {
-    if (typeof sess.registerPreloadScript === "function") {
-      sess.registerPreloadScript({
-        id: "agy-boost-runtime",
-        type: "frame",
-        filePath: runtimeFile
-      });
-    } else if (typeof sess.setPreloads === "function") {
-      const existing = typeof sess.getPreloads === "function" ? sess.getPreloads() : [];
-      if (!existing.includes(runtimeFile)) {
-        sess.setPreloads([...existing, runtimeFile]);
-      }
-    }
-  } catch {}
 }
 
 // Intercept session creation for partition sessions
@@ -142,8 +127,20 @@ app.on("web-contents-created", (_event, webContents) => {
       const url = webContents.getURL() || "";
       if (url.startsWith("https://127.0.0.1:") || url.startsWith("http://127.0.0.1:") || url.startsWith("https://localhost:") || url.startsWith("http://localhost:")) {
         if (fs.existsSync(runtimeFile)) {
+          let tokenScript = "";
+          try {
+            const tokenPath = process.platform === "darwin"
+              ? path.join(app.getPath("home"), "Library", "Application Support", "AGYBoost", ".token")
+              : (process.platform === "win32"
+                ? path.join(process.env.APPDATA || path.join(app.getPath("home"), "AppData", "Roaming"), "AGYBoost", ".token")
+                : path.join(app.getPath("home"), ".config", "AGYBoost", ".token"));
+            if (fs.existsSync(tokenPath)) {
+              const tokenVal = fs.readFileSync(tokenPath, "utf8").trim();
+              if (tokenVal) tokenScript = "globalThis.__AGY_TOKEN__ = " + JSON.stringify(tokenVal) + "; if (document.documentElement) document.documentElement.dataset.agyToken = " + JSON.stringify(tokenVal) + ";\n";
+            }
+          } catch {}
           const code = fs.readFileSync(runtimeFile, "utf8");
-          webContents.executeJavaScript(code).catch(() => {});
+          webContents.executeJavaScript(tokenScript + code).catch(() => {});
         }
       }
     } catch {}

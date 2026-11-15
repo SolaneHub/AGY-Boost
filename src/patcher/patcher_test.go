@@ -3,6 +3,7 @@ package patcher
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/agy-boost/agy-boost/src/host"
@@ -149,7 +150,7 @@ func TestStaleBackupTrapOnHostUpdate(t *testing.T) {
 	if !filepath.IsAbs(resourcesDir) {
 		t.Errorf("resourcesDir should be absolute")
 	}
-	if !stringContains(string(markerData), "2.0.0") {
+	if !strings.Contains(string(markerData), "2.0.0") {
 		t.Errorf("marker does not contain updated host version 2.0.0: %s", string(markerData))
 	}
 
@@ -165,13 +166,5 @@ func TestStaleBackupTrapOnHostUpdate(t *testing.T) {
 	if string(restoredContent) != string(v2Content) {
 		t.Errorf("restored content mismatch: got %s, want %s", string(restoredContent), string(v2Content))
 	}
-}
-
-func stringContains(s, substr string) bool {
-	return len(s) >= len(substr) && (s == substr || filepath.Base(s) != "" && contains(s, substr))
-}
-
-func contains(s, substr string) bool {
-	return len(substr) == 0 || (len(s) >= len(substr) && s[0:len(substr)] == substr) || (len(s) > 1 && contains(s[1:], substr))
 }
 

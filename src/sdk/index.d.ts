@@ -113,14 +113,55 @@ export interface ModDaemon {
   isHealthy(): Promise<boolean>;
 
   /**
-   * Spawn a native Go background sidecar for this mod.
+   * Retrieve list of installed mods and their status from the daemon.
+   */
+  getMods(): Promise<ModManifest[]>;
+
+  /**
+   * Enable or disable a specific mod.
+   */
+  toggleMod(id: string, enabled: boolean): Promise<boolean>;
+
+  /**
+   * Read a text file from a mod's directory via daemon.
+   */
+  getModFile(id: string, file: string): Promise<string | null>;
+
+  /**
+   * Opens the mods directory in the native file manager (Finder / Explorer)
+   * and returns the folder path.
+   */
+  openModsFolder(): Promise<{ ok: boolean; path?: string }>;
+
+  /**
+   * Spawn a native Go background sidecar for this mod (or global).
    */
   spawn(binaryPath: string, args?: string[]): Promise<{ ok: boolean; pid?: number }>;
 
   /**
-   * Terminate the running background daemon.
+   * Spawn a native Go background sidecar with an explicit modId.
    */
-  kill(): Promise<boolean>;
+  spawnDaemon(modId: string, binaryPath: string, args?: string[]): Promise<{ ok: boolean; pid?: number }>;
+
+  /**
+   * Terminate the running background daemon (or specific modId).
+   */
+  kill(modId?: string): Promise<boolean>;
+
+  /**
+   * Terminate a specific mod's running background daemon.
+   */
+  killDaemon(modId: string): Promise<boolean>;
+}
+
+export type HUDPosition = "top-right" | "top-left" | "bottom-right" | "bottom-left";
+
+export interface HUDOptions {
+  /**
+   * Screen corner position for the floating HUD overlay.
+   * Defaults to "top-right".
+   */
+  position?: HUDPosition;
 }
 
 export interface ModUI {
@@ -151,10 +192,50 @@ export interface ModUI {
   syncModStyles?(): Promise<void>;
 
   /**
+   * Synchronize and execute script files for all currently enabled mods.
+   */
+  syncModScripts?(): Promise<void>;
+
+  /**
    * Watches the DOM for elements matching selector as they appear dynamically.
    * Returns an unobserve function to disconnect the observer.
    */
   observe(selector: string, callback: (element: HTMLElement) => void): () => void;
+
+  /**
+   * Mounts an element into Antigravity's top header area or a top-docked bar
+   * without affecting [data-testid="conversation-view"] flexbox layout.
+   * Returns an unmount function that removes the element.
+   */
+  mountHeader(element: HTMLElement): () => void;
+
+  /**
+   * Mounts an element into the chat composer toolbar (next to model and permission selectors)
+   * without affecting conversation view layout, and maintains attachment across chat navigation.
+   * Returns an unmount function that removes the element.
+   */
+  mountComposer?(element: HTMLElement): () => void;
+
+  /**
+   * Mounts an element into an overlay container `#agy-hud-container` (fixed, pointer-events: none
+   * on container, pointer-events: auto on element, z-index: 9999).
+   * Returns an unmount function that removes the element and cleans up the container if empty.
+   */
+  mountFloatingHUD(element: HTMLElement, options?: HUDOptions): () => void;
+
+  /**
+   * Registers a global keyboard shortcut (e.g. "Cmd+Shift+M", "Ctrl+Shift+M", "Alt+T").
+   * Normalizes Cmd (Meta) on Mac and Ctrl on Windows/Linux.
+   * Returns an unregister function to remove the shortcut listener.
+   */
+  registerShortcut(combo: string, handler: (e: KeyboardEvent) => void): () => void;
+
+  /**
+   * Observes [data-testid="conversation-view"] or document body for new conversation
+   * message additions and triggers callback.
+   * Returns a disconnect function to stop observing.
+   */
+  observeConversation(callback: (node: HTMLElement) => void): () => void;
 
   /**
    * Open the AGY Boost mods management panel.

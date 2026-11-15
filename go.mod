@@ -1,3 +1,3 @@
 module github.com/agy-boost/agy-boost
 
-go 1.27.4
+go 1.22
