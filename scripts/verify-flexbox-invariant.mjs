@@ -153,6 +153,15 @@ async function main() {
 
     await delay(300);
 
+    // Wait for fixture to load and elements to be mounted
+    for (let i = 0; i < 40; i++) {
+      const ready = await evalInPage(wsUrl, `
+        Boolean(document.querySelector('[data-testid="conversation-view"]') && document.querySelector('[data-agy-boost-mods-btn="true"]'))
+      `);
+      if (ready) break;
+      await delay(100);
+    }
+
     const report = {
       sidebarButtonMounted: false,
       initialFlexState: null,
@@ -201,7 +210,7 @@ async function main() {
 
     // 3. Switch to / check Marketplace tab
     await evalInPage(wsUrl, `(() => {
-      const tabs = document.querySelectorAll('[data-testid="mods-tabs"] button');
+      const tabs = document.querySelectorAll('[data-testid="plugins-tabs"] button, [data-testid="mods-tabs"] button');
       for (const t of tabs) {
         if (t.textContent.includes('Marketplace')) {
           t.click();
@@ -217,9 +226,32 @@ async function main() {
       return Boolean(spotlight) && categoryCards.length > 0;
     })()`);
 
+    // 3b. Test 1:1 Mod Detail View Navigation from Marketplace
+    await evalInPage(wsUrl, `(() => {
+      const card = document.querySelector('[data-card-name="Effort Optimizer"] a') || document.querySelector('[data-card-name="Effort Optimizer"]');
+      if (card) card.click();
+    })()`);
+    await delay(500);
+
+    report.modDetailRendered = await evalInPage(wsUrl, `(() => {
+      const detail = document.querySelector('[data-testid="plugin-detail"]');
+      const h1 = detail ? detail.querySelector('h1') : null;
+      const prompts = detail ? detail.querySelectorAll('[data-testid="plugin-suggested-prompt-row"]') : [];
+      const tabs = detail ? detail.querySelectorAll('[role="tab"]') : [];
+      const footer = detail ? detail.querySelector('[data-testid="plugin-detail-footer"]') : null;
+      return Boolean(detail) && Boolean(h1 && h1.textContent.includes('Effort Optimizer')) && prompts.length > 0 && tabs.length === 2 && Boolean(footer);
+    })()`);
+
+    // Click Back to return to Marketplace
+    await evalInPage(wsUrl, `(() => {
+      const back = document.querySelector('[data-testid="plugin-detail-back-button"]');
+      if (back) back.click();
+    })()`);
+    await delay(500);
+
     // 4. Switch to Installed tab
     await evalInPage(wsUrl, `(() => {
-      const tabs = document.querySelectorAll('[data-testid="mods-tabs"] button');
+      const tabs = document.querySelectorAll('[data-testid="plugins-tabs"] button, [data-testid="mods-tabs"] button');
       for (const t of tabs) {
         if (t.textContent.includes('Installed')) {
           t.click();
@@ -237,7 +269,67 @@ async function main() {
       return hasInstalledHeader && hasEnginesHeader;
     })()`);
 
-    // 5. Close Mods View via clicking sidebar button again
+    // 5. Verify Navigation Active/Hover Loop including New Conversation
+    report.sidebarNavLoop = await evalInPage(wsUrl, `(() => {
+      const mods = document.querySelector('[data-agy-boost-mods-btn="true"]');
+      const auto = document.querySelector('[data-testid="automations-button"]');
+      const cust = Array.from(document.querySelectorAll('[data-testid="sidebar-navigation-items"] > *')).find(el => el.textContent.includes('Customizations'));
+      const newChat = document.querySelector('[data-testid="new-conversation-button"]');
+
+      // Check 1: In Mods view, mods is active, others have hover
+      const step1 = mods.classList.contains('bg-sidebar-secondary') &&
+                    auto.classList.contains('hover:bg-sidebar-muted') &&
+                    !auto.classList.contains('bg-sidebar-secondary') &&
+                    cust.classList.contains('hover:bg-sidebar-muted') &&
+                    !cust.classList.contains('bg-sidebar-secondary') &&
+                    newChat.classList.contains('hover:bg-sidebar-secondary') &&
+                    !newChat.classList.contains('bg-sidebar-secondary');
+
+      // Step 2: Click Customizations
+      cust.click();
+      const step2 = !mods.classList.contains('bg-sidebar-secondary') &&
+                    mods.classList.contains('hover:bg-sidebar-muted') &&
+                    cust.classList.contains('bg-sidebar-secondary') &&
+                    auto.classList.contains('hover:bg-sidebar-muted') &&
+                    !auto.classList.contains('bg-sidebar-secondary') &&
+                    newChat.classList.contains('hover:bg-sidebar-secondary') &&
+                    !newChat.classList.contains('bg-sidebar-secondary');
+
+      // Step 3: Click Automations
+      auto.click();
+      const step3 = !mods.classList.contains('bg-sidebar-secondary') &&
+                    mods.classList.contains('hover:bg-sidebar-muted') &&
+                    !cust.classList.contains('bg-sidebar-secondary') &&
+                    cust.classList.contains('hover:bg-sidebar-muted') &&
+                    auto.classList.contains('bg-sidebar-secondary') &&
+                    newChat.classList.contains('hover:bg-sidebar-secondary') &&
+                    !newChat.classList.contains('bg-sidebar-secondary');
+
+      // Step 4: Click New Conversation
+      newChat.click();
+      const step4 = newChat.classList.contains('bg-sidebar-secondary') &&
+                    !newChat.classList.contains('bg-sidebar-muted') &&
+                    !mods.classList.contains('bg-sidebar-secondary') &&
+                    mods.classList.contains('hover:bg-sidebar-muted') &&
+                    !auto.classList.contains('bg-sidebar-secondary') &&
+                    auto.classList.contains('hover:bg-sidebar-muted') &&
+                    !cust.classList.contains('bg-sidebar-secondary') &&
+                    cust.classList.contains('hover:bg-sidebar-muted');
+
+      // Step 5: Click Mods
+      mods.click();
+      const step5 = mods.classList.contains('bg-sidebar-secondary') &&
+                    auto.classList.contains('hover:bg-sidebar-muted') &&
+                    !auto.classList.contains('bg-sidebar-secondary') &&
+                    cust.classList.contains('hover:bg-sidebar-muted') &&
+                    !cust.classList.contains('bg-sidebar-secondary') &&
+                    newChat.classList.contains('hover:bg-sidebar-secondary') &&
+                    !newChat.classList.contains('bg-sidebar-secondary');
+
+      return { step1, step2, step3, step4, step5, all: step1 && step2 && step3 && step4 && step5 };
+    })()`);
+
+    // 6. Close Mods View via clicking sidebar button again
     await evalInPage(wsUrl, `
       document.querySelector('[data-agy-boost-mods-btn="true"]').click()
     `);
@@ -275,6 +367,7 @@ async function main() {
       report.modsViewOpened &&
       report.marketplaceRendered &&
       report.installedTabRendered &&
+      Boolean(report.sidebarNavLoop?.all) &&
       report.modsViewClosed &&
       report.noInlineDisplayBlock &&
       flexGrowPreserved

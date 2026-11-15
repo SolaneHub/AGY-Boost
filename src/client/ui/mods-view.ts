@@ -1,20 +1,31 @@
 // AGY Boost Mods View (100% Willow Design System Parity, Pure TypeScript)
 
-import { el } from "./dom.js";
+import { el, createSvgIcon } from "./dom.js";
 import { DaemonBridge } from "../bridge/daemon.js";
 import { syncModStyles } from "./theme.js";
+import { syncModScripts } from "./mods-runner.js";
 import { updateSidebarActiveState } from "./sidebar.js";
 import { MARKETPLACE_CATALOG } from "./marketplace/catalog.js";
 import { renderSpotlightHost, stopSpotlightTimer } from "./marketplace/spotlight.js";
+import { renderModDetail } from "./marketplace/mod-detail.js";
 
 type TabType = "installed" | "marketplace";
 
 let activeModsView: HTMLElement | null = null;
+let activeScrollContainer: HTMLElement | null = null;
+let activeBridge: DaemonBridge | null = null;
+let selectedModId: string | null = null;
+let selectedModSource: TabType = "marketplace";
 const hiddenSiblings = new Map<HTMLElement, string>();
 const hiddenHeaderElements = new Map<HTMLElement, string>();
 let headerObserver: MutationObserver | null = null;
-let currentTab: TabType = "installed";
+let currentTab: TabType = "marketplace";
 let searchQuery = "";
+let installedModsCollapsed = false;
+let skillsRulesCollapsed = false;
+let customAgentsCollapsed = false;
+let mcpServersCollapsed = false;
+let platformEnginesCollapsed = false;
 
 export function isModsViewOpen(): boolean {
   return activeModsView !== null && document.body.contains(activeModsView);
@@ -73,6 +84,8 @@ function hideChatHeaderItems(): void {
 }
 
 export function openModsView(bridge: DaemonBridge): void {
+  currentTab = "marketplace";
+  searchQuery = "";
   // Defensively clean up any lingering instances
   for (const old of Array.from(document.querySelectorAll("#agy-boost-mods-view"))) {
     old.remove();
@@ -124,14 +137,25 @@ export function openModsView(bridge: DaemonBridge): void {
   updateSidebarActiveState(true);
 }
 
-export function closeModsView(): void {
+export function openModDetail(modId: string, source: TabType = "marketplace"): void {
   stopSpotlightTimer();
+  selectedModId = modId;
+  selectedModSource = source;
+  if (activeScrollContainer && activeBridge) {
+    renderView(activeScrollContainer, activeBridge);
+  }
+}
 
+export function closeModsView(targetElement?: HTMLElement | null): void {
+  stopSpotlightTimer();
+  selectedModId = null;
+  activeScrollContainer = null;
+  activeBridge = null;
   for (const old of Array.from(document.querySelectorAll("#agy-boost-mods-view"))) {
     old.remove();
   }
   activeModsView = null;
-  updateSidebarActiveState(false);
+  updateSidebarActiveState(false, targetElement);
 
   // Disconnect header observer and restore hidden header elements
   if (headerObserver) {
@@ -185,7 +209,27 @@ export function closeModsView(): void {
 }
 
 function renderView(scrollContainer: HTMLElement, bridge: DaemonBridge): void {
+  activeScrollContainer = scrollContainer;
+  activeBridge = bridge;
   scrollContainer.innerHTML = "";
+
+  // If a mod detail screen is requested, render 1:1 detail page
+  if (selectedModId) {
+    renderModDetail(scrollContainer, {
+      modId: selectedModId,
+      sourceTab: selectedModSource,
+      bridge,
+      onBack: () => {
+        selectedModId = null;
+        currentTab = selectedModSource;
+        renderView(scrollContainer, bridge);
+      },
+      onRefresh: () => {
+        renderView(scrollContainer, bridge);
+      },
+    });
+    return;
+  }
 
   // 1. Sticky Header
   const stickyHeader = el("div", { class: "sticky top-0 z-20 bg-background" });
@@ -199,14 +243,16 @@ function renderView(scrollContainer: HTMLElement, bridge: DaemonBridge): void {
   const navTabs = el("nav", {
     "aria-label": "Mods views",
     class: "agy-pill inline-flex items-center h-8 rounded-lg border border-border bg-secondary/20 p-0.5 gap-0.5 select-none",
-    "data-testid": "mods-tabs",
+    "data-testid": "plugins-tabs",
   });
+  navTabs.setAttribute("data-legacy-testid", "mods-tabs");
 
   const tabClassActive = "agy-pill inline-flex items-center justify-center h-full px-2 rounded-md shrink-0 whitespace-nowrap no-underline transition-colors cursor-pointer outline-none focus-visible:ring-1 focus-visible:ring-primary bg-secondary text-foreground active";
   const tabClassInactive = "agy-pill inline-flex items-center justify-center h-full px-2 rounded-md shrink-0 whitespace-nowrap no-underline transition-colors cursor-pointer outline-none focus-visible:ring-1 focus-visible:ring-primary text-secondary-foreground hover:text-foreground";
 
   const btnMarketplace = el("button", {
     type: "button",
+    "data-testid": "plugins-tab-browse",
     class: currentTab === "marketplace" ? tabClassActive : tabClassInactive,
     onclick: () => {
       currentTab = "marketplace";
@@ -216,8 +262,10 @@ function renderView(scrollContainer: HTMLElement, bridge: DaemonBridge): void {
 
   const btnInstalled = el("button", {
     type: "button",
+    "data-testid": "plugins-tab-installed",
     class: currentTab === "installed" ? tabClassActive : tabClassInactive,
     onclick: () => {
+      stopSpotlightTimer();
       currentTab = "installed";
       renderView(scrollContainer, bridge);
     },
@@ -255,7 +303,7 @@ function renderView(scrollContainer: HTMLElement, bridge: DaemonBridge): void {
   const searchInput = el("input", {
     type: "text",
     placeholder: "Search mods...",
-    "data-testid": "mods-search",
+    "data-testid": "customizations-search",
     class: "w-full h-full !pl-7 pr-3 placeholder:text-placeholder bg-transparent outline-none no-focus-ring text-foreground select-text",
     style: "padding-left: 28px !important; padding-right: 12px; font-size: 14px; line-height: 20px; font-family: inherit;",
     value: searchQuery,
@@ -264,6 +312,7 @@ function renderView(scrollContainer: HTMLElement, bridge: DaemonBridge): void {
       renderContent(contentWrapper, bridge, scrollContainer);
     },
   });
+  searchInput.setAttribute("data-legacy-testid", "mods-search");
 
   searchField.appendChild(searchSvg);
   searchField.appendChild(searchInput);
@@ -282,7 +331,6 @@ function renderView(scrollContainer: HTMLElement, bridge: DaemonBridge): void {
 }
 
 async function renderContent(container: HTMLElement, bridge: DaemonBridge, scrollContainer: HTMLElement): Promise<void> {
-  stopSpotlightTimer();
   container.innerHTML = "";
 
   if (currentTab === "marketplace") {
@@ -295,35 +343,46 @@ async function renderContent(container: HTMLElement, bridge: DaemonBridge, scrol
 function renderMarketplaceTab(container: HTMLElement, bridge: DaemonBridge, scrollContainer: HTMLElement): void {
   const query = searchQuery.trim().toLowerCase();
 
+  const marketplaceWrapper = el("div", {
+    class: "flex flex-col gap-6",
+    "data-testid": "customizations-marketplace",
+  });
   const flexCol = el("div", { class: "flex flex-col gap-10" });
-  container.appendChild(flexCol);
+  marketplaceWrapper.appendChild(flexCol);
 
   // Featured Spotlight Hero Banner (only if no search active)
   if (!query) {
     flexCol.appendChild(
-      renderSpotlightHost(bridge, () => {
-        currentTab = "installed";
-        renderView(scrollContainer, bridge);
-      })
+      renderSpotlightHost(
+        bridge,
+        () => {
+          stopSpotlightTimer();
+          currentTab = "installed";
+          renderView(scrollContainer, bridge);
+        },
+        (modId: string) => {
+          openModDetail(modId, "marketplace");
+        }
+      )
     );
   }
 
-  // Categories
+  // Categories (1:1 Willow Customizations Shelves)
   const categories: { key: "compute" | "theme" | "sidecar"; title: string; subtitle: string }[] = [
     {
       key: "compute",
-      title: "High-Performance Compute & Optimizers",
-      subtitle: "Accelerate models, control token reasoning budgets, and offload tasks to WebAssembly.",
+      title: "Developer Tools",
+      subtitle: "High-performance compute, token reasoning budgets, and AST optimization tools.",
     },
     {
       key: "theme",
-      title: "Willow UI & Visual Themes",
-      subtitle: "Native themes and visual styling enhancements for Antigravity.",
+      title: "Design, Creative & Media",
+      subtitle: "Willow visual themes, high-DPI compact spacing, and status bar telemetry.",
     },
     {
       key: "sidecar",
-      title: "Sidecars & Background Engines",
-      subtitle: "Low-overhead native background processes powering local extensions.",
+      title: "Productivity & Project Management",
+      subtitle: "Multi-branch worktree management, local LLM bridging, and project automation.",
     },
   ];
 
@@ -343,7 +402,10 @@ function renderMarketplaceTab(container: HTMLElement, bridge: DaemonBridge, scro
     if (modsInCat.length === 0) continue;
     matchesFound += modsInCat.length;
 
-    const section = el("section", { class: "flex flex-col gap-3" });
+    const section = el("section", {
+      "aria-label": cat.title,
+      class: "flex flex-col gap-3",
+    });
 
     // Section Header (exact parity: h2, gap-1, px-3)
     const sectionHeader = el("div", { class: "flex flex-col gap-1 px-3" }, [
@@ -357,13 +419,12 @@ function renderMarketplaceTab(container: HTMLElement, bridge: DaemonBridge, scro
 
     for (const mod of modsInCat) {
       const card = el("div", {
-        class: "agy-card cursor-pointer select-none relative isolate flex items-center gap-3 p-3 rounded-xl hover:bg-muted/70 transition-colors h-[72px]",
-        style: "cursor: pointer;",
+        class: "agy-card relative isolate flex items-center gap-3 p-3 rounded-xl hover:bg-muted/70 transition-colors h-[72px] cursor-pointer",
         "data-testid": "customization-card",
         "data-card-name": mod.name,
-        onclick: () => {
-          currentTab = "installed";
-          renderView(scrollContainer, bridge);
+        onclick: (e: MouseEvent) => {
+          if ((e.target as HTMLElement).closest("button")) return;
+          openModDetail(mod.id, "marketplace");
         },
       });
 
@@ -373,17 +434,24 @@ function renderMarketplaceTab(container: HTMLElement, bridge: DaemonBridge, scro
       });
       iconBox.innerHTML = mod.iconSvg;
 
-      // Meta info
-      const meta = el("div", { class: "flex-1 min-w-0 flex flex-col gap-0.5 pr-4 pointer-events-none select-none" }, [
+      // Meta info (1:1 Willow typography with <a> link)
+      const titleLink = el("a", {
+        href: `#/mods/${mod.id}`,
+        class: "rounded-sm after:absolute after:inset-0 after:rounded-xl focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary text-left cursor-pointer",
+        onclick: (e: MouseEvent) => {
+          e.preventDefault();
+          e.stopPropagation();
+          openModDetail(mod.id, "marketplace");
+        },
+      }, [mod.name]);
+
+      const titleContainer = el("div", { class: "font-medium text-foreground truncate" }, [titleLink]);
+
+      const meta = el("div", { class: "flex-1 min-w-0 flex flex-col gap-0.5 pr-4 select-none" }, [
         el("div", { class: "flex items-center gap-1.5 min-w-0" }, [
-          el("div", { class: "font-medium text-foreground truncate text-sm select-none" }, [mod.name]),
-          ...mod.badges.map((b) =>
-            el("span", {
-              class: "inline-flex items-center text-[10px] leading-4 px-1.5 py-0.2 rounded-full shrink-0 font-normal bg-muted text-muted-foreground",
-            }, [b])
-          ),
+          titleContainer,
         ]),
-        el("div", { class: "text-xs text-muted-foreground truncate select-none" }, [mod.description]),
+        el("div", { class: "text-sm text-muted-foreground truncate select-none" }, [mod.description]),
       ]);
 
       // Action button (exact parity: h-6 w-6, 22x22 svg, rounded-md)
@@ -395,6 +463,7 @@ function renderMarketplaceTab(container: HTMLElement, bridge: DaemonBridge, scro
         "aria-label": `Install ${mod.name}`,
         onclick: (e: MouseEvent) => {
           e.stopPropagation();
+          stopSpotlightTimer();
           currentTab = "installed";
           renderView(scrollContainer, bridge);
         },
@@ -410,6 +479,25 @@ function renderMarketplaceTab(container: HTMLElement, bridge: DaemonBridge, scro
     }
 
     section.appendChild(grid);
+
+    // Exact Willow "See more" footer button
+    const seeMoreBtn = el("div", { class: "flex justify-start" }, [
+      el("button", {
+        type: "button",
+        class: "agy-button agy-button-custom inline-flex items-center font-medium transition-colors select-none outline-none cursor-pointer justify-center disabled:opacity-50 px-3 py-1 text-sm text-muted-foreground hover:text-foreground focus-visible:text-foreground focus-visible:underline inline-flex items-center gap-1 cursor-pointer",
+        "aria-label": `See more in ${cat.title}`,
+        onclick: () => {
+          stopSpotlightTimer();
+          currentTab = "installed";
+          renderView(scrollContainer, bridge);
+        },
+      }, [
+        createSvgIcon(`<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 -960 960 960" fill="currentColor"><path d="M450-450H250q-12.75,0-21.37-8.63T220-480.01t8.62-21.37T250-510H450V-710q0-12.75 8.63-21.37T480.01-740t21.37,8.62T510-710v200H710q12.75,0 21.37,8.63T740-479.99t-8.62,21.37T710-450H510v200q0,12.75-8.63,21.37T479.99-220t-21.37-8.62T450-250V-450Z"/></svg>`),
+        "See more",
+      ]),
+    ]);
+    section.appendChild(seeMoreBtn);
+
     flexCol.appendChild(section);
   }
 
@@ -422,6 +510,25 @@ function renderMarketplaceTab(container: HTMLElement, bridge: DaemonBridge, scro
     ]);
     flexCol.appendChild(emptyState);
   }
+
+  // Exact Willow Marketplace Footer Notice
+  if (!query) {
+    const footer = el("footer", {
+      "aria-label": "Marketplace notice",
+      "data-testid": "marketplace-footer",
+      class: "mt-4 border-t border-border/60 pt-5 px-3",
+    }, [
+      el("p", {
+        "data-testid": "third-party-tools-disclaimer",
+        class: "m-0 text-sm text-muted-foreground leading-relaxed",
+      }, [
+        "AGY Boost native mods run locally on your machine with direct in-client DOM access, WebAssembly acceleration, and loopback daemon IPC.",
+      ]),
+    ]);
+    marketplaceWrapper.appendChild(footer);
+  }
+
+  container.appendChild(marketplaceWrapper);
 }
 
 async function renderInstalledTab(container: HTMLElement, bridge: DaemonBridge, scrollContainer: HTMLElement): Promise<void> {
@@ -438,41 +545,75 @@ async function renderInstalledTab(container: HTMLElement, bridge: DaemonBridge, 
     );
   });
 
-  const flexCol = el("div", { class: "flex flex-col gap-10", "data-testid": "customizations-installed" });
+  const flexCol = el("div", { class: "flex flex-col gap-8", "data-testid": "customizations-installed" });
   container.appendChild(flexCol);
 
   // 1. Installed Mods Section
-  const installedSection = el("section", { class: "flex flex-col gap-3" });
+  const installedSection = el("section", { class: "flex flex-col gap-3", "data-testid": "customizations-installed-mods" });
 
-  const sectionHeader = el("div", { class: "flex items-center justify-between gap-4 px-3" }, [
-    el("h3", { class: "min-w-0 font-medium text-lg text-foreground" }, [
-      el("div", { class: "flex items-center gap-2 select-none text-left" }, [
-        "Installed Mods",
-        el("span", {
-          "data-testid": "customization-section-count",
-          class: "inline-flex items-center text-[11px] leading-4 px-2 py-0.5 rounded-full shrink-0 font-normal bg-muted text-muted-foreground",
-        }, [String(allMods.length)]),
-      ]),
-    ]),
-    el("div", { class: "flex items-center gap-1" }, [
-      el("button", {
-        type: "button",
-        class: "agy-button agy-button-xs inline-flex items-center font-medium transition-colors select-none outline-none cursor-pointer justify-center disabled:opacity-50 bg-transparent text-muted-foreground hover:text-foreground hover:bg-secondary focus-visible:text-foreground focus-visible:bg-secondary h-6 text-xs rounded-full gap-1 px-2.5",
-        title: "Open Mods Directory",
-        onclick: () => {
-          // Open folder prompt or alert
-          alert("AGY Boost Mods Directory:\n~/Library/Application Support/AGYBoost/mods");
-        },
-      }, [
-        el("span", { class: "flex items-center" }, [
-          createSvgIcon(`<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 -960 960 960" fill="currentColor"><path d="M160-160q-33 0-56.5-23.5T80-240v-480q0-33 23.5-56.5T160-800h240l80 80h320q33 0 56.5 23.5T880-640v400q0 33-23.5 56.5T800-160H160Zm0-80h640v-400H447l-80-80H160v480Zm0 0v-480 480Z"/></svg>`),
-        ]),
-        el("span", {}, ["Open Folder"]),
-      ]),
-    ]),
+  const chevronSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 -960 960 960" fill="currentColor" class="w-4 h-4 shrink-0 text-muted-foreground transition-transform ${installedModsCollapsed ? "" : "rotate-90"}"><path d="M517.85-480l-184-184L376-706.15L602.15-480L376-253.85L333.85-296l184-184Z"></path></svg>`;
+
+  const toggleCollapseBtn = el("button", {
+    type: "button",
+    "aria-expanded": installedModsCollapsed ? "false" : "true",
+    class: "flex cursor-pointer items-center gap-2 select-none text-left",
+    onclick: () => {
+      installedModsCollapsed = !installedModsCollapsed;
+      renderContent(container, bridge, scrollContainer);
+    },
+  }, [
+    "Installed Mods",
+    el("span", {
+      "data-testid": "customization-section-count",
+      class: "inline-flex items-center text-[11px] leading-4 px-2 py-0.5 rounded-full shrink-0 font-normal bg-muted text-muted-foreground",
+    }, [String(allMods.length)]),
+    createSvgIcon(chevronSvg),
+  ]);
+
+  const folderLabel = el("span", {}, ["Open Folder"]);
+  const folderBtn = el("button", {
+    type: "button",
+    "data-testid": "mods-open-folder",
+    class: "agy-button agy-button-xs inline-flex items-center font-medium transition-colors select-none outline-none cursor-pointer justify-center disabled:opacity-50 bg-transparent text-muted-foreground hover:text-foreground hover:bg-secondary focus-visible:text-foreground focus-visible:bg-secondary h-6 text-sm rounded-md gap-1 px-2.5 rounded-full",
+    title: "Open Mods Directory",
+    onclick: async (e: MouseEvent) => {
+      e.stopPropagation();
+      try {
+        const res = await bridge.openModsFolder();
+        if (res.path && typeof navigator !== "undefined" && navigator.clipboard) {
+          try {
+            await navigator.clipboard.writeText(res.path);
+          } catch {}
+        }
+        const isMac = typeof navigator !== "undefined" && /mac/i.test(navigator.userAgent || "");
+        const successMsg = isMac ? "Opened in Finder!" : "Opened in Explorer!";
+        folderLabel.textContent = res.ok ? successMsg : "Copied Path!";
+        setTimeout(() => {
+          folderLabel.textContent = "Open Folder";
+        }, 2000);
+      } catch {
+        folderLabel.textContent = "Copied Path!";
+        setTimeout(() => {
+          folderLabel.textContent = "Open Folder";
+        }, 2000);
+      }
+    },
+  }, [
+    createSvgIcon(`<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 -960 960 960" fill="currentColor"><path d="M160-160q-33 0-56.5-23.5T80-240v-480q0-33 23.5-56.5T160-800h240l80 80h320q33 0 56.5 23.5T880-640v400q0 33-23.5 56.5T800-160H160Zm0-80h640v-400H447l-80-80H160v480Zm0 0v-480 480Z"/></svg>`),
+    folderLabel,
+  ]);
+
+  const sectionHeader = el("div", { class: "flex items-center justify-between gap-4 pl-3" }, [
+    el("h3", { class: "min-w-0 font-medium text-lg text-foreground" }, [toggleCollapseBtn]),
+    el("div", { class: "flex items-center gap-1" }, [folderBtn]),
   ]);
 
   installedSection.appendChild(sectionHeader);
+
+  const installedContent = el("div", {
+    class: "flex flex-col gap-2",
+    style: installedModsCollapsed ? "display: none;" : "",
+  });
 
   if (allMods.length === 0) {
     const empty = el("div", {
@@ -491,61 +632,85 @@ async function renderInstalledTab(container: HTMLElement, bridge: DaemonBridge, 
         },
       }, ["Browse Marketplace"]),
     ]);
-    installedSection.appendChild(empty);
+    installedContent.appendChild(empty);
   } else {
     const grid = el("div", { class: "grid gap-2 grid-cols-1 sm:grid-cols-2" });
 
     for (const mod of filteredMods) {
       const card = el("div", {
-        class: "agy-card relative isolate flex items-center gap-3 p-3 rounded-xl hover:bg-muted/70 transition-colors h-[72px]",
+        class: "agy-card relative isolate flex items-center gap-3 p-3 rounded-xl hover:bg-muted/70 transition-colors h-[72px] cursor-pointer",
         "data-testid": "customization-card",
         "data-card-name": mod.name,
+        onclick: (e: MouseEvent) => {
+          if ((e.target as HTMLElement).closest("button") || (e.target as HTMLElement).closest('[role="switch"]')) return;
+          openModDetail(mod.id, "installed");
+        },
       });
 
       // 48x48 icon
       const iconBox = el("div", {
-        class: "flex items-center justify-center flex-shrink-0 overflow-hidden w-12 h-12 rounded-xl bg-muted/40 text-primary",
+        class: "flex items-center justify-center flex-shrink-0 overflow-hidden w-12 h-12 rounded-xl bg-muted/40 text-primary pointer-events-none",
       });
       iconBox.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19.439 7.85c0-1.57.802-2.54 1.561-2.85-1.561-.92-3.565-.63-4.5.5-1.07 1.28-1.5 2.5-3.5 2.5s-2.43-1.22-3.5-2.5c-.935-1.13-2.939-1.42-4.5-.5.759.31 1.561 1.28 1.561 2.85 0 1.93-1.61 3.5-3.561 3.5v3.3c1.951 0 3.561 1.57 3.561 3.5 0 1.57-.802 2.54-1.561 2.85 1.561.92 3.565.63 4.5-.5 1.07-1.28 1.5-2.5 3.5-2.5s2.43 1.22 3.5 2.5c.935 1.13 2.939 1.42 4.5.5-.759-.31-1.561-1.28-1.561-2.85 0-1.93 1.61-3.5 3.561-3.5v-3.3c-1.951 0-3.561-1.57-3.561-3.5Z"/></svg>`;
 
-      // Badges
-      const badges: HTMLElement[] = [
-        el("span", { class: "inline-flex items-center text-[10px] leading-4 px-1.5 py-0.2 rounded-full shrink-0 font-normal bg-muted text-muted-foreground font-mono" }, [`v${mod.version}`]),
-      ];
-      if (mod.wasm) {
-        badges.push(el("span", { class: "inline-flex items-center text-[10px] leading-4 px-1.5 py-0.2 rounded-full shrink-0 font-medium bg-purple-500/15 text-purple-400 font-mono" }, ["WASM"]));
-      }
-      if (mod.daemon) {
-        badges.push(el("span", { class: "inline-flex items-center text-[10px] leading-4 px-1.5 py-0.2 rounded-full shrink-0 font-medium bg-blue-500/15 text-blue-400 font-mono" }, ["GO"]));
-      }
-      if (mod.style) {
-        badges.push(el("span", { class: "inline-flex items-center text-[10px] leading-4 px-1.5 py-0.2 rounded-full shrink-0 font-medium bg-pink-500/15 text-pink-400 font-mono" }, ["THEME"]));
-      }
+      // Meta info (1:1 Willow text-sm typography with <a> link)
+      const titleLink = el("a", {
+        href: `#/mods/${mod.id}`,
+        class: "rounded-sm after:absolute after:inset-0 after:rounded-xl focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary text-left cursor-pointer",
+        onclick: (e: MouseEvent) => {
+          e.preventDefault();
+          e.stopPropagation();
+          openModDetail(mod.id, "installed");
+        },
+      }, [mod.name]);
 
-      // Meta info
+      const titleContainer = el("div", { class: "font-medium text-foreground truncate" }, [titleLink]);
+
       const meta = el("div", { class: "flex-1 min-w-0 flex flex-col gap-0.5 pr-4" }, [
         el("div", { class: "flex items-center gap-1.5 min-w-0" }, [
-          el("div", { class: "font-medium text-foreground truncate text-sm" }, [mod.name]),
-          ...badges,
+          titleContainer,
         ]),
-        el("div", { class: "text-xs text-muted-foreground truncate" }, [mod.description || "No description provided."]),
+        el("div", { class: "text-sm text-muted-foreground truncate" }, [mod.description || "No description provided."]),
       ]);
 
-      // Toggle button
-      const actionBox = el("div", { class: "relative z-10 flex-shrink-0 flex items-center" });
+      // Willow Toggle Switch + More Actions Button
+      const actionBox = el("div", { class: "relative z-10 flex-shrink-0 flex items-center gap-1.5" });
       const toggleBtn = el("button", {
         type: "button",
-        class: `px-3 py-1 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
-          mod.enabled ? "bg-primary text-primary-foreground hover:bg-primary/90" : "bg-muted text-muted-foreground hover:text-foreground"
+        role: "switch",
+        "aria-checked": mod.enabled ? "true" : "false",
+        title: mod.enabled ? `Disable ${mod.name}` : `Enable ${mod.name}`,
+        class: `relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+          mod.enabled ? "bg-primary" : "bg-muted"
         }`,
-        onclick: async () => {
+        onclick: async (e: MouseEvent) => {
+          e.stopPropagation();
           await bridge.toggleMod(mod.id, !mod.enabled);
           await syncModStyles(bridge);
+          await syncModScripts(bridge);
           await renderContent(container, bridge, scrollContainer);
         },
-      }, [mod.enabled ? "Enabled" : "Disabled"]);
+      }, [
+        el("span", {
+          class: `pointer-events-none inline-block h-4 w-4 transform rounded-full bg-background shadow-sm ring-0 transition duration-200 ease-in-out ${
+            mod.enabled ? "translate-x-4" : "translate-x-0"
+          }`,
+        }),
+      ]);
+
+      const moreActionsBtn = el("button", {
+        type: "button",
+        class: "agy-button agy-button-icon inline-flex items-center font-medium transition-colors select-none outline-none cursor-pointer justify-center disabled:opacity-50 bg-transparent text-muted-foreground hover:text-foreground hover:bg-secondary focus-visible:text-foreground focus-visible:bg-secondary h-6 w-6 shrink-0 flex items-center justify-center rounded-md",
+        "aria-label": `More actions for ${mod.name}`,
+        onclick: (e: MouseEvent) => {
+          e.stopPropagation();
+        },
+      }, [
+        createSvgIcon(`<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 -960 960 960" fill="currentColor"><path d="M480-189.23q-24.75,0-42.37-17.62T420-249.23t17.62-42.37T480-309.23t42.37,17.62T540-249.23t-17.62,42.37T480-189.23ZM480-420q-24.75,0-42.37-17.62T420-480t17.62-42.37T480-540t42.37,17.62T540-480t-17.62,42.37T480-420Zm0-230.77q-24.75,0-42.37-17.62T420-710.77t17.62-42.37T480-770.77t42.37,17.62T540-710.77t-17.62,42.37T480-650.77Z"/></svg>`),
+      ]);
 
       actionBox.appendChild(toggleBtn);
+      actionBox.appendChild(moreActionsBtn);
 
       card.appendChild(iconBox);
       card.appendChild(meta);
@@ -553,25 +718,209 @@ async function renderInstalledTab(container: HTMLElement, bridge: DaemonBridge, 
       grid.appendChild(card);
     }
 
-    installedSection.appendChild(grid);
+    installedContent.appendChild(grid);
   }
 
+  installedSection.appendChild(installedContent);
   flexCol.appendChild(installedSection);
 
-  // 2. Platform Engines Section (Parity with native platform status)
-  const enginesSection = el("section", { class: "flex flex-col gap-3" });
-  const enginesHeader = el("div", { class: "flex items-center justify-between gap-4 pl-3" }, [
-    el("h3", { class: "min-w-0 font-medium text-lg text-foreground" }, [
-      el("div", { class: "flex items-center gap-2 select-none text-left" }, [
-        "Platform Engines",
-        el("span", {
-          class: "inline-flex items-center text-[11px] leading-4 px-2 py-0.5 rounded-full shrink-0 font-normal bg-muted text-muted-foreground",
-        }, ["3"]),
+  // 2. Skills & Rules Section (Exact 1:1 Parity with Customizations)
+  const skillsList = [
+    { name: "/effort-optimizer", desc: "Fine-tune AI reasoning depth and token budgets in real-time." },
+    { name: "/stream-accel", desc: "High-throughput SSE buffer engine that eliminates stream stutter." },
+    { name: "/theme-oled", desc: "True pitch-black palette engineered specifically for OLED displays." },
+    { name: "/ui-telemetry", desc: "Live telemetry HUD monitoring speed, latency, tokens, and daemon memory." },
+    { name: "/local-llm-bridge", desc: "Zero-config bridge connecting local Ollama, llama.cpp, LM Studio, and vLLM models." },
+    { name: "/git-worktree", desc: "Isolated background engine managing simultaneous Git worktrees without re-indexing." },
+  ];
+
+  const skillsSection = el("section", { class: "flex flex-col gap-3", "data-testid": "customizations-installed-skills" });
+  const skillsChevronSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 -960 960 960" fill="currentColor" class="w-4 h-4 shrink-0 text-muted-foreground transition-transform ${skillsRulesCollapsed ? "" : "rotate-90"}"><path d="M517.85-480l-184-184L376-706.15L602.15-480L376-253.85L333.85-296l184-184Z"></path></svg>`;
+
+  const toggleSkillsBtn = el("button", {
+    type: "button",
+    "aria-expanded": skillsRulesCollapsed ? "false" : "true",
+    class: "flex cursor-pointer items-center gap-2 select-none text-left",
+    onclick: () => {
+      skillsRulesCollapsed = !skillsRulesCollapsed;
+      renderContent(container, bridge, scrollContainer);
+    },
+  }, [
+    "Skills & Rules",
+    el("span", {
+      "data-testid": "customization-section-count",
+      class: "inline-flex items-center text-[11px] leading-4 px-2 py-0.5 rounded-full shrink-0 font-normal bg-muted text-muted-foreground",
+    }, [String(skillsList.length)]),
+    createSvgIcon(skillsChevronSvg),
+  ]);
+
+  const skillsHeader = el("div", { class: "flex items-center justify-between gap-4 pl-3" }, [
+    el("h3", { class: "min-w-0 font-medium text-lg text-foreground" }, [toggleSkillsBtn]),
+  ]);
+  skillsSection.appendChild(skillsHeader);
+
+  const skillsContent = el("div", {
+    class: "flex flex-col gap-1",
+    style: skillsRulesCollapsed ? "display: none;" : "",
+  });
+  const skillsInnerCol = el("div", { class: "flex flex-col" });
+
+  for (const s of skillsList) {
+    const modId = s.name.replace(/^\//, "");
+    const item = el("div", { class: "group relative flex items-center rounded-lg hover:bg-secondary focus-within:bg-secondary" }, [
+      el("button", {
+        type: "button",
+        class: "w-full min-w-0 px-3 py-1.5 text-left rounded-lg cursor-pointer outline-none focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary",
+        onclick: () => {
+          openModDetail(modId, "installed");
+        },
+      }, [
+        el("div", { class: "flex items-baseline gap-2.5 min-w-0 pr-14" }, [
+          el("span", { class: "font-medium flex-shrink-0 text-foreground" }, [s.name]),
+          el("span", { class: "text-muted-foreground truncate", title: s.desc }, [s.desc]),
+        ]),
+      ]),
+      el("div", {
+        class: "absolute top-0 bottom-0 right-0 pr-2 pl-8 flex items-center justify-end gap-1 z-10 rounded-r-lg opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto group-focus-within:opacity-100 group-focus-within:pointer-events-auto",
+        style: "background: linear-gradient(to right, transparent 0%, var(--secondary) 25%);",
+      }, [
+        el("button", {
+          type: "button",
+          class: "agy-button agy-button-icon inline-flex items-center font-medium transition-colors select-none outline-none cursor-pointer justify-center disabled:opacity-50 bg-transparent text-muted-foreground hover:text-foreground hover:bg-secondary focus-visible:text-foreground focus-visible:bg-secondary h-6 w-6 shrink-0 flex items-center justify-center rounded-md",
+          "aria-label": `More actions for ${s.name}`,
+        }, [
+          createSvgIcon(`<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 -960 960 960" fill="currentColor"><path d="M480-189.23q-24.75,0-42.37-17.62T420-249.23t17.62-42.37T480-309.23t42.37,17.62T540-249.23t-17.62,42.37T480-189.23ZM480-420q-24.75,0-42.37-17.62T420-480t17.62-42.37T480-540t42.37,17.62T540-480t-17.62,42.37T480-420Zm0-230.77q-24.75,0-42.37-17.62T420-710.77t17.62-42.37T480-770.77t42.37,17.62T540-710.77t-17.62,42.37T480-650.77Z"/></svg>`),
+        ]),
+      ]),
+    ]);
+    skillsInnerCol.appendChild(item);
+  }
+  skillsContent.appendChild(skillsInnerCol);
+  skillsSection.appendChild(skillsContent);
+  flexCol.appendChild(skillsSection);
+
+  // 3. Custom Agents Section (Exact 1:1 Parity)
+  const agentsSection = el("section", { class: "flex flex-col gap-3", "data-testid": "customizations-installed-agents" });
+  const agentsChevronSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 -960 960 960" fill="currentColor" class="w-4 h-4 shrink-0 text-muted-foreground transition-transform ${customAgentsCollapsed ? "" : "rotate-90"}"><path d="M517.85-480l-184-184L376-706.15L602.15-480L376-253.85L333.85-296l184-184Z"></path></svg>`;
+
+  const toggleAgentsBtn = el("button", {
+    type: "button",
+    "aria-expanded": customAgentsCollapsed ? "false" : "true",
+    class: "flex cursor-pointer items-center gap-2 select-none text-left",
+    onclick: () => {
+      customAgentsCollapsed = !customAgentsCollapsed;
+      renderContent(container, bridge, scrollContainer);
+    },
+  }, [
+    "Custom Agents",
+    el("span", {
+      "data-testid": "customization-section-count",
+      class: "inline-flex items-center text-[11px] leading-4 px-2 py-0.5 rounded-full shrink-0 font-normal bg-muted text-muted-foreground",
+    }, ["0"]),
+    createSvgIcon(agentsChevronSvg),
+  ]);
+
+  const agentsHeader = el("div", { class: "flex items-center justify-between gap-4 pl-3" }, [
+    el("h3", { class: "min-w-0 font-medium text-lg text-foreground" }, [toggleAgentsBtn]),
+  ]);
+  agentsSection.appendChild(agentsHeader);
+
+  const agentsContent = el("p", {
+    class: "pl-3 text-sm text-muted-foreground",
+    style: customAgentsCollapsed ? "display: none;" : "",
+  }, ["No custom agents yet."]);
+  agentsSection.appendChild(agentsContent);
+  flexCol.appendChild(agentsSection);
+
+  // 4. MCP Servers Section (Exact 1:1 Parity)
+  const mcpSection = el("section", { class: "flex flex-col gap-3", "data-testid": "customizations-installed-mcp" });
+  const mcpChevronSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 -960 960 960" fill="currentColor" class="w-4 h-4 shrink-0 text-muted-foreground transition-transform ${mcpServersCollapsed ? "" : "rotate-90"}"><path d="M517.85-480l-184-184L376-706.15L602.15-480L376-253.85L333.85-296l184-184Z"></path></svg>`;
+
+  const toggleMcpBtn = el("button", {
+    type: "button",
+    "aria-expanded": mcpServersCollapsed ? "false" : "true",
+    class: "flex cursor-pointer items-center gap-2 select-none text-left",
+    onclick: () => {
+      mcpServersCollapsed = !mcpServersCollapsed;
+      renderContent(container, bridge, scrollContainer);
+    },
+  }, [
+    "MCP Servers",
+    el("span", {
+      "data-testid": "customization-section-count",
+      class: "inline-flex items-center text-[11px] leading-4 px-2 py-0.5 rounded-full shrink-0 font-normal bg-muted text-muted-foreground",
+    }, ["1"]),
+    createSvgIcon(mcpChevronSvg),
+  ]);
+
+  const mcpHeader = el("div", { class: "flex items-center justify-between gap-4 pl-3" }, [
+    el("h3", { class: "min-w-0 font-medium text-lg text-foreground" }, [toggleMcpBtn]),
+  ]);
+  mcpSection.appendChild(mcpHeader);
+
+  const mcpContent = el("div", {
+    class: "flex flex-col gap-1",
+    style: mcpServersCollapsed ? "display: none;" : "",
+  });
+  const mcpItem = el("div", { class: "group relative flex items-center rounded-lg hover:bg-secondary focus-within:bg-secondary" }, [
+    el("button", {
+      type: "button",
+      class: "w-full min-w-0 px-3 py-1.5 text-left rounded-lg cursor-pointer outline-none focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary",
+    }, [
+      el("div", { class: "flex items-baseline gap-2.5 min-w-0 pr-14" }, [
+        el("span", { class: "font-medium flex-shrink-0 text-foreground" }, ["AGY Boost Daemon (Loopback IPC)"]),
+        el("span", { class: "text-muted-foreground truncate", title: "http://127.0.0.1:42042 • Native Go Daemon Loopback Bridge" }, [
+          "http://127.0.0.1:42042 • Native Go Daemon Loopback Bridge",
+        ]),
+      ]),
+    ]),
+    el("div", {
+      class: "absolute top-0 bottom-0 right-0 pr-2 pl-8 flex items-center justify-end gap-1 z-10 rounded-r-lg opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto group-focus-within:opacity-100 group-focus-within:pointer-events-auto",
+      style: "background: linear-gradient(to right, transparent 0%, var(--secondary) 25%);",
+    }, [
+      el("button", {
+        type: "button",
+        class: "agy-button agy-button-icon inline-flex items-center font-medium transition-colors select-none outline-none cursor-pointer justify-center disabled:opacity-50 bg-transparent text-muted-foreground hover:text-foreground hover:bg-secondary focus-visible:text-foreground focus-visible:bg-secondary h-6 w-6 shrink-0 flex items-center justify-center rounded-md",
+        "aria-label": "More actions for daemon",
+      }, [
+        createSvgIcon(`<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 -960 960 960" fill="currentColor"><path d="M480-189.23q-24.75,0-42.37-17.62T420-249.23t17.62-42.37T480-309.23t42.37,17.62T540-249.23t-17.62,42.37T480-189.23ZM480-420q-24.75,0-42.37-17.62T420-480t17.62-42.37T480-540t42.37,17.62T540-480t-17.62,42.37T480-420Zm0-230.77q-24.75,0-42.37-17.62T420-710.77t17.62-42.37T480-770.77t42.37,17.62T540-710.77t-17.62,42.37T480-650.77Z"/></svg>`),
       ]),
     ]),
   ]);
+  mcpContent.appendChild(mcpItem);
+  mcpSection.appendChild(mcpContent);
+  flexCol.appendChild(mcpSection);
+
+  // 5. Platform Engines Section (Parity with native platform status)
+  const enginesSection = el("section", { class: "flex flex-col gap-3", "data-testid": "customizations-platform-engines" });
+  const engineChevronSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 -960 960 960" fill="currentColor" class="w-4 h-4 shrink-0 text-muted-foreground transition-transform ${platformEnginesCollapsed ? "" : "rotate-90"}"><path d="M517.85-480l-184-184L376-706.15L602.15-480L376-253.85L333.85-296l184-184Z"></path></svg>`;
+
+  const toggleEnginesBtn = el("button", {
+    type: "button",
+    "aria-expanded": platformEnginesCollapsed ? "false" : "true",
+    class: "flex cursor-pointer items-center gap-2 select-none text-left",
+    onclick: () => {
+      platformEnginesCollapsed = !platformEnginesCollapsed;
+      renderContent(container, bridge, scrollContainer);
+    },
+  }, [
+    "Platform Engines",
+    el("span", {
+      "data-testid": "customization-section-count",
+      class: "inline-flex items-center text-[11px] leading-4 px-2 py-0.5 rounded-full shrink-0 font-normal bg-muted text-muted-foreground",
+    }, ["3"]),
+    createSvgIcon(engineChevronSvg),
+  ]);
+
+  const enginesHeader = el("div", { class: "flex items-center justify-between gap-4 pl-3" }, [
+    el("h3", { class: "min-w-0 font-medium text-lg text-foreground" }, [toggleEnginesBtn]),
+  ]);
   enginesSection.appendChild(enginesHeader);
 
+  const enginesContent = el("div", {
+    class: "flex flex-col gap-2",
+    style: platformEnginesCollapsed ? "display: none;" : "",
+  });
   const enginesGrid = el("div", { class: "grid gap-2 grid-cols-1 sm:grid-cols-2" });
 
   // Engine 1: Go Daemon
@@ -586,13 +935,8 @@ async function renderInstalledTab(container: HTMLElement, bridge: DaemonBridge, 
     el("div", { class: "flex-1 min-w-0 flex flex-col gap-0.5 pr-4" }, [
       el("div", { class: "flex items-center gap-1.5 min-w-0" }, [
         el("div", { class: "font-medium text-foreground truncate text-sm" }, ["Go Background Daemon"]),
-        el("span", {
-          class: `inline-flex items-center text-[10px] leading-4 px-1.5 py-0.2 rounded-full shrink-0 font-medium ${
-            isHealthy ? "bg-emerald-500/15 text-emerald-400" : "bg-amber-500/15 text-amber-400"
-          }`,
-        }, [isHealthy ? "Online" : "Offline"]),
       ]),
-      el("div", { class: "text-xs text-muted-foreground truncate" }, [
+      el("div", { class: "text-sm text-muted-foreground truncate" }, [
         isHealthy ? "127.0.0.1:42042 • Loopback IPC (<10MB RAM)" : "Offline • Start via 'agy-boost daemon'",
       ]),
     ]),
@@ -613,9 +957,8 @@ async function renderInstalledTab(container: HTMLElement, bridge: DaemonBridge, 
     el("div", { class: "flex-1 min-w-0 flex flex-col gap-0.5 pr-4" }, [
       el("div", { class: "flex items-center gap-1.5 min-w-0" }, [
         el("div", { class: "font-medium text-foreground truncate text-sm" }, ["WebAssembly Compute"]),
-        el("span", { class: "inline-flex items-center text-[10px] leading-4 px-1.5 py-0.2 rounded-full shrink-0 font-medium bg-purple-500/15 text-purple-400 font-mono" }, ["SIMD"]),
       ]),
-      el("div", { class: "text-xs text-muted-foreground truncate" }, ["Native Wasm loader & execution sandbox"]),
+      el("div", { class: "text-sm text-muted-foreground truncate" }, ["Native Wasm loader & execution sandbox"]),
     ]),
     el("div", { class: "relative z-10 flex-shrink-0 flex items-center pr-2" }, [
       el("div", { class: "w-2.5 h-2.5 rounded-full bg-purple-500 shadow-sm shadow-purple-500/50" }),
@@ -634,9 +977,8 @@ async function renderInstalledTab(container: HTMLElement, bridge: DaemonBridge, 
     el("div", { class: "flex-1 min-w-0 flex flex-col gap-0.5 pr-4" }, [
       el("div", { class: "flex items-center gap-1.5 min-w-0" }, [
         el("div", { class: "font-medium text-foreground truncate text-sm" }, ["Pure TS In-Client Runtime"]),
-        el("span", { class: "inline-flex items-center text-[10px] leading-4 px-1.5 py-0.2 rounded-full shrink-0 font-medium bg-sky-500/15 text-sky-400 font-mono" }, ["0ms"]),
       ]),
-      el("div", { class: "text-xs text-muted-foreground truncate" }, ["Zero-dependency DOM manipulator & event bus"]),
+      el("div", { class: "text-sm text-muted-foreground truncate" }, ["Zero-dependency DOM manipulator & event bus"]),
     ]),
     el("div", { class: "relative z-10 flex-shrink-0 flex items-center pr-2" }, [
       el("div", { class: "w-2.5 h-2.5 rounded-full bg-sky-500 shadow-sm shadow-sky-500/50" }),
@@ -646,7 +988,8 @@ async function renderInstalledTab(container: HTMLElement, bridge: DaemonBridge, 
   enginesGrid.appendChild(daemonCard);
   enginesGrid.appendChild(wasmCard);
   enginesGrid.appendChild(tsCard);
-  enginesSection.appendChild(enginesGrid);
+  enginesContent.appendChild(enginesGrid);
+  enginesSection.appendChild(enginesContent);
   flexCol.appendChild(enginesSection);
 }
 
@@ -677,11 +1020,4 @@ function getMainViewportContainer(): HTMLElement | null {
   if (sheet) return sheet;
 
   return null;
-}
-
-function createSvgIcon(rawSvg: string): HTMLElement {
-  const span = document.createElement("span");
-  span.className = "shrink-0 flex items-center";
-  span.innerHTML = rawSvg;
-  return span;
 }

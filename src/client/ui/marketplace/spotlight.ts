@@ -163,7 +163,8 @@ function createSpotlightRingSvg(): SVGSVGElement {
 
 export function renderSpotlightHost(
   bridge: DaemonBridge,
-  onNavigateToInstalled: () => void
+  onNavigateToInstalled: () => void,
+  onOpenDetail?: (modId: string) => void
 ): HTMLElement {
   const host = el("section", {
     "aria-label": "Featured",
@@ -294,8 +295,15 @@ export function renderSpotlightHost(
     });
 
     const titleH3 = el("h3", {
-      class: "text-2xl leading-tight font-semibold tracking-tight text-foreground m-0 truncate",
+      class: "text-2xl leading-tight font-semibold tracking-tight text-foreground m-0 truncate cursor-pointer hover:underline",
       "data-testid": isAct ? "featured-carousel-headline" : undefined,
+      onclick: () => {
+        if (onOpenDetail) {
+          onOpenDetail(mod.id);
+        } else {
+          onNavigateToInstalled();
+        }
+      },
     }, [mod.name]);
 
     const descP = el("p", {
@@ -331,7 +339,11 @@ export function renderSpotlightHost(
       class: "agy-button agy-button-sm inline-flex items-center font-medium transition-colors select-none outline-none cursor-pointer justify-center disabled:opacity-50 bg-secondary text-secondary-foreground hover:text-foreground border-none h-7 text-base rounded-md gap-1.5 px-2.5 no-underline focus-visible:ring-2 focus-visible:ring-primary",
       tabindex: isAct ? "0" : "-1",
       onclick: () => {
-        onNavigateToInstalled();
+        if (onOpenDetail) {
+          onOpenDetail(mod.id);
+        } else {
+          onNavigateToInstalled();
+        }
       },
     }, ["Details"]);
 

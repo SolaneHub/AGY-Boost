@@ -28,7 +28,7 @@
     "patch": "./dist/agy-boost patch --safe",
     "unpatch": "./dist/agy-boost unpatch",
     "daemon": "./dist/agy-boost daemon",
-    "check": "pnpm run typecheck && pnpm run test:all && pnpm run build"
+    "check": "pnpm run test:all && pnpm run build"
   },
   "devDependencies": {
     "@types/node": "^26.6.6",

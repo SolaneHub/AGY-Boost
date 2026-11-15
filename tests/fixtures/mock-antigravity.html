@@ -36,9 +36,15 @@
     <aside role="navigation" class="w-64 h-full bg-[#181818] border-r border-[#333333] flex flex-col p-2 shrink-0">
       <div class="p-2 font-bold text-sm text-gray-400">Antigravity</div>
       <div data-testid="sidebar-navigation-items" class="flex flex-col gap-1 mt-2">
-        <button data-testid="new-conversation-button" class="px-3 py-2 rounded-lg text-sm text-left bg-sidebar-secondary text-foreground font-medium">
+        <button data-testid="new-conversation-button" onclick="event.preventDefault();" class="px-3 py-2 rounded-lg text-sm text-left border border-border text-foreground bg-sidebar-secondary font-medium">
           New Chat
         </button>
+        <button data-testid="automations-button" class="px-3 py-2 rounded-lg text-sm text-left bg-transparent text-secondary-foreground hover:bg-sidebar-muted hover:text-foreground">
+          Automations
+        </button>
+        <a href="/customizations" onclick="event.preventDefault();" class="px-3 py-2 rounded-lg text-sm text-left bg-transparent text-secondary-foreground hover:bg-sidebar-muted hover:text-foreground">
+          Customizations
+        </a>
       </div>
     </aside>
 

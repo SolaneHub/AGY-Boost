@@ -36,3 +36,10 @@ export function el<K extends keyof HTMLElementTagNameMap>(
 
   return element;
 }
+
+export function createSvgIcon(rawSvg: string): HTMLElement {
+  const span = document.createElement("span");
+  span.className = "shrink-0 flex items-center";
+  span.innerHTML = rawSvg;
+  return span;
+}

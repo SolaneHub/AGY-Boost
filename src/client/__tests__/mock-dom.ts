@@ -1,12 +1,46 @@
 // Minimal In-Memory DOM Mock for AGY Boost Client Tests (Zero Dependencies)
 
 export class MockNode {
+  static ELEMENT_NODE = 1;
+  static TEXT_NODE = 3;
+  nodeType = 1;
   childNodes: MockNode[] = [];
   parentNode: MockNode | null = null;
 
   appendChild<T extends MockNode>(child: T): T {
+    if (child.parentNode) {
+      child.parentNode.removeChild(child);
+    }
     child.parentNode = this;
     this.childNodes.push(child);
+    MockMutationObserver.notify({
+      type: "childList",
+      target: this,
+      addedNodes: [child],
+      removedNodes: [],
+    });
+    return child;
+  }
+
+  insertBefore<T extends MockNode>(child: T, ref: MockNode | null): T {
+    if (!ref) {
+      return this.appendChild(child);
+    }
+    const idx = this.childNodes.indexOf(ref);
+    if (idx === -1) {
+      return this.appendChild(child);
+    }
+    if (child.parentNode) {
+      child.parentNode.removeChild(child);
+    }
+    child.parentNode = this;
+    this.childNodes.splice(idx, 0, child);
+    MockMutationObserver.notify({
+      type: "childList",
+      target: this,
+      addedNodes: [child],
+      removedNodes: [],
+    });
     return child;
   }
 
@@ -15,6 +49,12 @@ export class MockNode {
     if (idx !== -1) {
       this.childNodes.splice(idx, 1);
       child.parentNode = null;
+      MockMutationObserver.notify({
+        type: "childList",
+        target: this,
+        addedNodes: [],
+        removedNodes: [child],
+      });
     }
     return child;
   }
@@ -23,6 +63,36 @@ export class MockNode {
     if (this.parentNode) {
       this.parentNode.removeChild(this);
     }
+  }
+
+  contains(other: MockNode | null): boolean {
+    let curr: MockNode | null = other;
+    while (curr) {
+      if (curr === this) return true;
+      curr = curr.parentNode;
+    }
+    return false;
+  }
+
+  get parentElement(): MockElement | null {
+    return this.parentNode instanceof MockElement ? this.parentNode : null;
+  }
+
+  get firstChild(): MockNode | null {
+    return this.childNodes[0] || null;
+  }
+
+  get children(): MockElement[] {
+    return this.childNodes.filter((c): c is MockElement => c instanceof MockElement);
+  }
+
+  get isConnected(): boolean {
+    let curr: MockNode | null = this;
+    while (curr) {
+      if (curr instanceof MockDocument) return true;
+      curr = curr.parentNode;
+    }
+    return false;
   }
 
   get textContent(): string {
@@ -38,6 +108,8 @@ export class MockNode {
 }
 
 export class MockTextNode extends MockNode {
+  override nodeType = 3;
+
   constructor(public text: string) {
     super();
   }
@@ -90,15 +162,151 @@ export class MockCSSStyleDeclaration {
       }
     }
   }
+
+  get position(): string {
+    return this.getPropertyValue("position");
+  }
+  set position(val: string) {
+    this.setProperty("position", val);
+  }
+
+  get pointerEvents(): string {
+    return this.getPropertyValue("pointer-events");
+  }
+  set pointerEvents(val: string) {
+    this.setProperty("pointer-events", val);
+  }
+
+  get zIndex(): string {
+    return this.getPropertyValue("z-index");
+  }
+  set zIndex(val: string) {
+    this.setProperty("z-index", val);
+  }
+
+  get top(): string {
+    return this.getPropertyValue("top");
+  }
+  set top(val: string) {
+    this.setProperty("top", val);
+  }
+
+  get left(): string {
+    return this.getPropertyValue("left");
+  }
+  set left(val: string) {
+    this.setProperty("left", val);
+  }
+
+  get right(): string {
+    return this.getPropertyValue("right");
+  }
+  set right(val: string) {
+    this.setProperty("right", val);
+  }
+
+  get bottom(): string {
+    return this.getPropertyValue("bottom");
+  }
+  set bottom(val: string) {
+    this.setProperty("bottom", val);
+  }
+}
+
+function matchesSelectorPart(el: MockElement, sel: string): boolean {
+  sel = sel.trim();
+  if (!sel) return false;
+
+  // Handle #id
+  if (sel.startsWith("#")) {
+    return el.id === sel.slice(1) || el.getAttribute("id") === sel.slice(1);
+  }
+  // Handle .class
+  if (sel.startsWith(".")) {
+    return el.className.split(/\s+/).includes(sel.slice(1));
+  }
+  // Handle [attr="value"] or [attr]
+  if (sel.startsWith("[")) {
+    const attrMatch = sel.match(/^\[([^=\]]+)(?:="?([^"\]]*)"?)?\]$/);
+    if (attrMatch) {
+      const [, name, val] = attrMatch;
+      if (val !== undefined) {
+        return el.getAttribute(name) === val;
+      }
+      return el.hasAttribute(name);
+    }
+  }
+  // Handle tag[attr="value"]
+  const tagAttrMatch = sel.match(/^([a-zA-Z0-9_-]+)\[([^=\]]+)(?:="?([^"\]]*)"?)?\]$/);
+  if (tagAttrMatch) {
+    const [, tag, name, val] = tagAttrMatch;
+    if (el.tagName.toLowerCase() !== tag.toLowerCase()) return false;
+    if (val !== undefined) {
+      return el.getAttribute(name) === val;
+    }
+    return el.hasAttribute(name);
+  }
+
+  // Handle tag
+  return el.tagName.toLowerCase() === sel.toLowerCase();
+}
+
+function queryAllDescendants(root: MockNode, selector: string): MockElement[] {
+  const parts = selector.trim().match(/(?:\[[^\]]+\]|[^\s\[\]])+/g) || [];
+  if (parts.length === 0 || !parts[0]) return [];
+
+  let currentElements: MockElement[] = [];
+  const collect = (node: MockNode, fn: (el: MockElement) => boolean) => {
+    for (const child of node.childNodes) {
+      if (child instanceof MockElement) {
+        if (fn(child)) currentElements.push(child);
+        collect(child, fn);
+      }
+    }
+  };
+
+  collect(root, (el) => matchesSelectorPart(el, parts[0]!));
+
+  for (let i = 1; i < parts.length; i++) {
+    const part = parts[i];
+    const nextElements: MockElement[] = [];
+    for (const el of currentElements) {
+      const sub: MockElement[] = [];
+      const collectSub = (n: MockNode) => {
+        for (const child of n.childNodes) {
+          if (child instanceof MockElement) {
+            if (matchesSelectorPart(child, part)) sub.push(child);
+            collectSub(child);
+          }
+        }
+      };
+      collectSub(el);
+      for (const s of sub) {
+        if (!nextElements.includes(s)) nextElements.push(s);
+      }
+    }
+    currentElements = nextElements;
+  }
+
+  return currentElements;
 }
 
 export class MockElement extends MockNode {
+  override nodeType = 1;
   attributes = new Map<string, string>();
   listeners = new Map<string, Array<(event: any) => void>>();
   style = new MockCSSStyleDeclaration();
 
   constructor(public tagName: string) {
     super();
+  }
+
+  get id(): string {
+    return this.getAttribute("id") || "";
+  }
+
+  set id(val: string) {
+    this.setAttribute("id", val);
   }
 
   setAttribute(name: string, value: string): void {
@@ -117,13 +325,13 @@ export class MockElement extends MockNode {
     return this.attributes.has(name);
   }
 
-  addEventListener(type: string, listener: (event: any) => void): void {
+  addEventListener(type: string, listener: (event: any) => void, _capture?: any): void {
     const list = this.listeners.get(type) || [];
     list.push(listener);
     this.listeners.set(type, list);
   }
 
-  removeEventListener(type: string, listener: (event: any) => void): void {
+  removeEventListener(type: string, listener: (event: any) => void, _capture?: any): void {
     const list = this.listeners.get(type);
     if (!list) return;
     const idx = list.indexOf(listener);
@@ -140,6 +348,22 @@ export class MockElement extends MockNode {
     return true;
   }
 
+  onclick: ((event: any) => void) | null = null;
+
+  click(): void {
+    const event = {
+      type: "click",
+      target: this,
+      currentTarget: this,
+      preventDefault: () => {},
+      stopPropagation: () => {},
+    };
+    if (typeof this.onclick === "function") {
+      this.onclick(event);
+    }
+    this.dispatchEvent(event);
+  }
+
   get className(): string {
     return this.getAttribute("class") || "";
   }
@@ -148,22 +372,69 @@ export class MockElement extends MockNode {
     this.setAttribute("class", val);
   }
 
-  querySelectorAll(selector: string): MockElement[] {
-    const results: MockElement[] = [];
-    const traverse = (node: MockNode) => {
-      for (const child of node.childNodes) {
-        if (child instanceof MockElement) {
-          if (selector.startsWith(".") && child.className.includes(selector.slice(1))) {
-            results.push(child);
-          } else if (selector.toLowerCase() === child.tagName.toLowerCase()) {
-            results.push(child);
-          }
-          traverse(child);
-        }
-      }
+  get classList(): {
+    add: (...tokens: string[]) => void;
+    remove: (...tokens: string[]) => void;
+    contains: (token: string) => boolean;
+    toggle: (token: string, force?: boolean) => boolean;
+  } {
+    const getTokens = () =>
+      (this.getAttribute("class") || "")
+        .split(/\s+/)
+        .filter(Boolean);
+
+    const setTokens = (tokens: string[]) => {
+      this.setAttribute("class", tokens.join(" "));
     };
-    traverse(this);
-    return results;
+
+    return {
+      add: (...tokens: string[]) => {
+        const current = getTokens();
+        for (const token of tokens) {
+          if (!current.includes(token)) current.push(token);
+        }
+        setTokens(current);
+      },
+      remove: (...tokens: string[]) => {
+        const current = getTokens().filter((t) => !tokens.includes(t));
+        setTokens(current);
+      },
+      contains: (token: string) => getTokens().includes(token),
+      toggle: (token: string, force?: boolean) => {
+        const current = getTokens();
+        const has = current.includes(token);
+        const shouldAdd = force !== undefined ? force : !has;
+        if (shouldAdd && !has) {
+          current.push(token);
+          setTokens(current);
+          return true;
+        } else if (!shouldAdd && has) {
+          setTokens(current.filter((t) => t !== token));
+          return false;
+        }
+        return has;
+      },
+    };
+  }
+
+  closest(selector: string): MockElement | null {
+    let curr: MockNode | null = this;
+    while (curr) {
+      if (curr instanceof MockElement && matchesSelectorPart(curr, selector)) {
+        return curr;
+      }
+      curr = curr.parentNode;
+    }
+    return null;
+  }
+
+  querySelector(selector: string): MockElement | null {
+    const res = this.querySelectorAll(selector);
+    return res[0] || null;
+  }
+
+  querySelectorAll(selector: string): MockElement[] {
+    return queryAllDescendants(this, selector);
   }
 }
 
@@ -171,6 +442,7 @@ export class MockDocument extends MockNode {
   documentElement: MockElement;
   head: MockElement;
   body: MockElement;
+  listeners = new Map<string, Array<(event: any) => void>>();
 
   constructor() {
     super();
@@ -190,22 +462,111 @@ export class MockDocument extends MockNode {
     return new MockTextNode(text);
   }
 
-  addEventListener(_type: string, _listener: any): void {}
+  getElementById(id: string): MockElement | null {
+    return this.querySelector("#" + id);
+  }
+
+  querySelector(selector: string): MockElement | null {
+    return this.documentElement.querySelector(selector);
+  }
+
+  querySelectorAll(selector: string): MockElement[] {
+    return this.documentElement.querySelectorAll(selector);
+  }
+
+  addEventListener(type: string, listener: (event: any) => void, _capture?: any): void {
+    const list = this.listeners.get(type) || [];
+    list.push(listener);
+    this.listeners.set(type, list);
+  }
+
+  removeEventListener(type: string, listener: (event: any) => void, _capture?: any): void {
+    const list = this.listeners.get(type);
+    if (!list) return;
+    const idx = list.indexOf(listener);
+    if (idx !== -1) {
+      list.splice(idx, 1);
+    }
+  }
+
+  dispatchEvent(event: { type: string; [key: string]: any }): boolean {
+    const list = this.listeners.get(event.type) || [];
+    for (const listener of list) {
+      listener(event);
+    }
+    return true;
+  }
+
+  onclick: ((event: any) => void) | null = null;
+
+  click(): void {
+    const event = {
+      type: "click",
+      target: this,
+      currentTarget: this,
+      preventDefault: () => {},
+      stopPropagation: () => {},
+    };
+    if (typeof this.onclick === "function") {
+      this.onclick(event);
+    }
+    this.dispatchEvent(event);
+  }
+}
+
+export class MockMutationObserver {
+  private static activeObservers: Array<{
+    observer: MockMutationObserver;
+    target: MockNode;
+    options?: any;
+  }> = [];
+
+  constructor(public callback: (mutations: any[], observer: MockMutationObserver) => void) {}
+
+  observe(target: MockNode, options?: any): void {
+    MockMutationObserver.activeObservers.push({
+      observer: this,
+      target,
+      options,
+    });
+  }
+
+  disconnect(): void {
+    MockMutationObserver.activeObservers = MockMutationObserver.activeObservers.filter(
+      (entry) => entry.observer !== this
+    );
+  }
+
+  static notify(record: { type: string; target: MockNode; addedNodes: MockNode[]; removedNodes: MockNode[] }): void {
+    for (const entry of [...this.activeObservers]) {
+      if (entry.target === record.target || (entry.options?.subtree && entry.target.contains(record.target))) {
+        try {
+          entry.observer.callback([record], entry.observer);
+        } catch {}
+      }
+    }
+  }
 }
 
 export function setupMockDOM(): () => void {
   const origDocument = (globalThis as any).document;
   const origNode = (globalThis as any).Node;
   const origElement = (globalThis as any).HTMLElement;
+  const origMutationObserver = (globalThis as any).MutationObserver;
+  const origWindow = (globalThis as any).window;
 
   const mockDoc = new MockDocument();
   (globalThis as any).document = mockDoc;
   (globalThis as any).Node = MockNode;
   (globalThis as any).HTMLElement = MockElement;
+  (globalThis as any).MutationObserver = MockMutationObserver;
+  (globalThis as any).window = mockDoc;
 
   return () => {
     (globalThis as any).document = origDocument;
     (globalThis as any).Node = origNode;
     (globalThis as any).HTMLElement = origElement;
+    (globalThis as any).MutationObserver = origMutationObserver;
+    (globalThis as any).window = origWindow;
   };
 }

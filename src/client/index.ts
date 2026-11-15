@@ -6,6 +6,14 @@ import { mountSidebarButton } from "./ui/sidebar.js";
 import { openModsView, closeModsView, isModsViewOpen } from "./ui/mods-view.js";
 import { el } from "./ui/dom.js";
 import { injectCSS, setTheme, observe, syncModStyles } from "./ui/theme.js";
+import { syncModScripts } from "./ui/mods-runner.js";
+import {
+  mountHeader,
+  mountComposer,
+  mountFloatingHUD,
+  registerShortcut,
+  observeConversation,
+} from "./ui/slots.js";
 
 const bridge = new DaemonBridge();
 
@@ -21,14 +29,36 @@ export const AGYBoost = {
     setTheme,
     observe,
     syncModStyles: () => syncModStyles(bridge),
+    syncModScripts: () => syncModScripts(bridge),
     openModsView: () => openModsView(bridge),
     closeModsView,
     isModsViewOpen,
+    mountHeader,
+    mountComposer,
+    mountFloatingHUD,
+    registerShortcut,
+    observeConversation,
   },
 };
 
 // Expose globally on window
 (globalThis as any).AGYBoost = AGYBoost;
+
+function initRuntime(): void {
+  const root = typeof document !== "undefined" ? document.documentElement : null;
+  if ((root && root.dataset.agyBoostLoaded === "true") || (globalThis as any).__AGY_BOOST_INITIALIZED__) {
+    return;
+  }
+  if (root) {
+    root.dataset.agyBoostLoaded = "true";
+  }
+  (globalThis as any).__AGY_BOOST_INITIALIZED__ = true;
+
+  enforceConversationLayoutInvariant();
+  mountSidebarButton(bridge);
+  syncModStyles(bridge).catch(() => {});
+  syncModScripts(bridge).catch(() => {});
+}
 
 // Defensive observer on [data-testid="conversation-view"] to enforce layout invariant
 function enforceConversationLayoutInvariant(): void {
@@ -113,13 +143,7 @@ function enforceConversationLayoutInvariant(): void {
 
 // Initialize when DOM is ready
 if (document.readyState === "loading") {
-  document.addEventListener("DOMContentLoaded", () => {
-    enforceConversationLayoutInvariant();
-    mountSidebarButton(bridge);
-    syncModStyles(bridge).catch(() => {});
-  });
+  document.addEventListener("DOMContentLoaded", initRuntime);
 } else {
-  enforceConversationLayoutInvariant();
-  mountSidebarButton(bridge);
-  syncModStyles(bridge).catch(() => {});
+  initRuntime();
 }

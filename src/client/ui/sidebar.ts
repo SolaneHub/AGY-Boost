@@ -4,34 +4,132 @@ import { openModsView, isModsViewOpen, closeModsView } from "./mods-view.js";
 import { DaemonBridge } from "../bridge/daemon.js";
 
 const BUTTON_ATTR = "data-agy-boost-mods-btn";
-let previousActiveNav: HTMLElement | null = null;
+let isSyncing = false;
 
-export function updateSidebarActiveState(isActive: boolean): void {
-  const btn = document.querySelector<HTMLButtonElement>(`[${BUTTON_ATTR}]`);
-  if (!btn) return;
+export function setNavItemActive(item: HTMLElement): void {
+  item.classList.remove(
+    "bg-transparent",
+    "text-secondary-foreground",
+    "hover:bg-sidebar-muted",
+    "hover:text-foreground"
+  );
+  item.classList.add("bg-sidebar-secondary", "text-foreground");
+}
 
-  if (isActive) {
-    // Save and de-emphasize any currently active nav item in the sidebar
-    const currentActive = document.querySelector<HTMLElement>(
-      '[role="navigation"] .bg-sidebar-secondary'
-    );
-    if (currentActive && currentActive !== btn) {
-      previousActiveNav = currentActive;
-      currentActive.classList.remove("bg-sidebar-secondary", "text-foreground");
-      currentActive.classList.add("bg-transparent", "text-secondary-foreground");
+export function setNavItemInactive(item: HTMLElement): void {
+  item.classList.remove("bg-sidebar-secondary", "text-foreground");
+  item.classList.add(
+    "bg-transparent",
+    "text-secondary-foreground",
+    "hover:bg-sidebar-muted",
+    "hover:text-foreground"
+  );
+}
+
+export function setNewChatActive(item: HTMLElement): void {
+  item.classList.remove("bg-sidebar-muted", "hover:bg-sidebar-secondary");
+  item.classList.add("bg-sidebar-secondary");
+}
+
+export function setNewChatInactive(item: HTMLElement): void {
+  item.classList.remove("bg-sidebar-secondary");
+  item.classList.add("bg-sidebar-muted", "hover:bg-sidebar-secondary");
+}
+
+function getSidebarNavItems(): {
+  modsBtn: HTMLButtonElement | null;
+  autoBtn: HTMLElement | null;
+  custBtn: HTMLElement | null;
+  newChatBtn: HTMLElement | null;
+} {
+  const modsBtn = document.querySelector<HTMLButtonElement>(`[${BUTTON_ATTR}]`);
+  const autoBtn = document.querySelector<HTMLElement>('[data-testid="automations-button"]');
+  const newChatBtn = document.querySelector<HTMLElement>('[data-testid="new-conversation-button"]');
+  const navContainer = document.querySelector<HTMLElement>('[data-testid="sidebar-navigation-items"]');
+  const navChildren = navContainer ? (Array.from(navContainer.children) as HTMLElement[]) : [];
+  const custBtn = navChildren.find((el) => {
+    if (el === modsBtn || el === autoBtn || el === newChatBtn) return false;
+    const text = el.textContent ? el.textContent.trim() : "";
+    const href = el.getAttribute("href");
+    return text === "Customizations" || href === "/customizations";
+  }) || null;
+
+  return { modsBtn, autoBtn, custBtn, newChatBtn };
+}
+
+export function updateSidebarActiveState(isActive: boolean, targetElement?: HTMLElement | null): void {
+  if (isSyncing) return;
+  isSyncing = true;
+  try {
+    const { modsBtn, autoBtn, custBtn, newChatBtn } = getSidebarNavItems();
+
+    if (isActive) {
+      if (modsBtn) setNavItemActive(modsBtn);
+      if (autoBtn) setNavItemInactive(autoBtn);
+      if (custBtn) setNavItemInactive(custBtn);
+      if (newChatBtn) setNewChatInactive(newChatBtn);
+      return;
     }
 
-    btn.classList.remove("bg-transparent", "text-secondary-foreground", "hover:bg-sidebar-muted");
-    btn.classList.add("bg-sidebar-secondary", "text-foreground");
-  } else {
-    btn.classList.remove("bg-sidebar-secondary", "text-foreground");
-    btn.classList.add("bg-transparent", "text-secondary-foreground", "hover:bg-sidebar-muted");
+    // Mods view is inactive
+    if (modsBtn) setNavItemInactive(modsBtn);
 
-    if (previousActiveNav && previousActiveNav.isConnected) {
-      previousActiveNav.classList.remove("bg-transparent", "text-secondary-foreground");
-      previousActiveNav.classList.add("bg-sidebar-secondary", "text-foreground");
-      previousActiveNav = null;
+    // If an explicit target element was clicked (e.g. user clicked Customizations, Automations, or New Conversation)
+    if (targetElement) {
+      const isNewChat = Boolean(newChatBtn && (newChatBtn === targetElement || newChatBtn.contains(targetElement)));
+      const isCust = Boolean(custBtn && (custBtn === targetElement || custBtn.contains(targetElement)));
+      const isAuto = Boolean(autoBtn && (autoBtn === targetElement || autoBtn.contains(targetElement)));
+
+      if (isNewChat) {
+        if (newChatBtn) setNewChatActive(newChatBtn);
+        if (custBtn) setNavItemInactive(custBtn);
+        if (autoBtn) setNavItemInactive(autoBtn);
+        return;
+      }
+
+      if (isCust) {
+        if (custBtn) setNavItemActive(custBtn);
+        if (autoBtn) setNavItemInactive(autoBtn);
+        if (newChatBtn) setNewChatInactive(newChatBtn);
+        return;
+      }
+
+      if (isAuto) {
+        if (autoBtn) setNavItemActive(autoBtn);
+        if (custBtn) setNavItemInactive(custBtn);
+        if (newChatBtn) setNewChatInactive(newChatBtn);
+        return;
+      }
+
+      // User clicked another navigation item (e.g. conversation row in recents/projects)
+      if (newChatBtn) setNewChatInactive(newChatBtn);
+      if (custBtn) setNavItemInactive(custBtn);
+      if (autoBtn) setNavItemInactive(autoBtn);
+      return;
     }
+
+    // No target element provided (e.g. toggled off or programmatic close):
+    // Sync state based on the current window location pathname
+    const path = typeof window !== "undefined" ? window.location.pathname : "";
+    if (path === "/" || path === "") {
+      if (newChatBtn) setNewChatActive(newChatBtn);
+      if (custBtn) setNavItemInactive(custBtn);
+      if (autoBtn) setNavItemInactive(autoBtn);
+    } else if (path === "/customizations") {
+      if (custBtn) setNavItemActive(custBtn);
+      if (autoBtn) setNavItemInactive(autoBtn);
+      if (newChatBtn) setNewChatInactive(newChatBtn);
+    } else if (path === "/sidecars") {
+      if (autoBtn) setNavItemActive(autoBtn);
+      if (custBtn) setNavItemInactive(custBtn);
+      if (newChatBtn) setNewChatInactive(newChatBtn);
+    } else {
+      if (newChatBtn) setNewChatInactive(newChatBtn);
+      if (custBtn) setNavItemInactive(custBtn);
+      if (autoBtn) setNavItemInactive(autoBtn);
+    }
+  } finally {
+    isSyncing = false;
   }
 }
 
@@ -110,10 +208,34 @@ export function mountSidebarButton(bridge: DaemonBridge): void {
     const sidebar = document.querySelector('[role="navigation"]');
     if (sidebar && sidebar.contains(target) && !target.closest(`[${BUTTON_ATTR}]`)) {
       if (isModsViewOpen()) {
-        closeModsView();
+        closeModsView(target);
+      } else {
+        updateSidebarActiveState(false, target);
       }
     }
   }, true);
+
+  // Sync state on popstate (browser back/forward navigation)
+  window.addEventListener("popstate", () => {
+    updateSidebarActiveState(isModsViewOpen());
+  });
+
+  // Intercept history.pushState / history.replaceState to sync when React router updates the URL
+  if (typeof window !== "undefined" && window.history && !(window.history as any).__agyBoostHooked) {
+    (window.history as any).__agyBoostHooked = true;
+    const origPush = window.history.pushState.bind(window.history);
+    window.history.pushState = function (...args) {
+      const res = origPush(...args);
+      updateSidebarActiveState(isModsViewOpen());
+      return res;
+    };
+    const origReplace = window.history.replaceState.bind(window.history);
+    window.history.replaceState = function (...args) {
+      const res = origReplace(...args);
+      updateSidebarActiveState(isModsViewOpen());
+      return res;
+    };
+  }
 
   // MutationObserver to re-mount if DOM dynamically changes (e.g. route change)
   let pendingMountRaf = 0;
@@ -142,8 +264,16 @@ export function mountSidebarButton(bridge: DaemonBridge): void {
         bodyMountObserver = null;
       }
       if (!sidebarObserver) {
-        sidebarObserver = new MutationObserver(scheduleMount);
-        sidebarObserver.observe(sidebarContainer, { childList: true, subtree: true });
+        sidebarObserver = new MutationObserver(() => {
+          scheduleMount();
+          if (!isSyncing && isModsViewOpen()) {
+            updateSidebarActiveState(true);
+          }
+        });
+        sidebarObserver.observe(sidebarContainer, {
+          childList: true,
+          subtree: true,
+        });
       }
     } else if (!bodyMountObserver) {
       bodyMountObserver = new MutationObserver(scheduleMount);
