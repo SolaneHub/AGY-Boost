@@ -23,8 +23,8 @@ jobs:
 
       - uses: actions/setup-go@v5
         with:
-          go-version: "1.22"
-          cache: true
+          go-version: "1.24"
+          cache: false
 
       - uses: pnpm/action-setup@v4
         with:
@@ -45,7 +45,7 @@ jobs:
     name: Full Matrix (${{ matrix.os }})
     needs: fast-gate
     strategy:
-      fail-fast: true
+      fail-fast: false
       matrix:
         os: [windows-latest, ubuntu-latest, macos-latest]
     runs-on: ${{ matrix.os }}
@@ -54,8 +54,8 @@ jobs:
 
       - uses: actions/setup-go@v5
         with:
-          go-version: "1.22"
-          cache: true
+          go-version: "1.24"
+          cache: false
 
       - uses: pnpm/action-setup@v4
         with:
@@ -84,8 +84,8 @@ jobs:
 
       - uses: actions/setup-go@v5
         with:
-          go-version: "1.22"
-          cache: true
+          go-version: "1.24"
+          cache: false
 
       - uses: pnpm/action-setup@v4
         with:
