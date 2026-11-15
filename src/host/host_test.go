@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 )
 
@@ -25,7 +26,12 @@ func TestUserDataDir(t *testing.T) {
 
 func TestInspectCandidateIsPatchedCheck(t *testing.T) {
 	tempDir := t.TempDir()
-	resourcesDir := filepath.Join(tempDir, "Contents", "Resources")
+	var resourcesDir string
+	if runtime.GOOS == "darwin" {
+		resourcesDir = filepath.Join(tempDir, "Contents", "Resources")
+	} else {
+		resourcesDir = filepath.Join(tempDir, "resources")
+	}
 	if err := os.MkdirAll(resourcesDir, 0755); err != nil {
 		t.Fatalf("failed to create resources dir: %v", err)
 	}

@@ -3,6 +3,7 @@ package patcher
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -11,7 +12,12 @@ import (
 
 func TestPatcherApplyAndRestore(t *testing.T) {
 	tempDir := t.TempDir()
-	resourcesDir := filepath.Join(tempDir, "Contents", "Resources")
+	var resourcesDir string
+	if runtime.GOOS == "darwin" {
+		resourcesDir = filepath.Join(tempDir, "Contents", "Resources")
+	} else {
+		resourcesDir = filepath.Join(tempDir, "resources")
+	}
 	if err := os.MkdirAll(resourcesDir, 0755); err != nil {
 		t.Fatalf("failed to create mock resources dir: %v", err)
 	}
@@ -23,7 +29,7 @@ func TestPatcherApplyAndRestore(t *testing.T) {
 	}
 
 	info := &host.HostInfo{
-		Platform:      "darwin",
+		Platform:      runtime.GOOS,
 		RootPath:      tempDir,
 		ResourcesPath: resourcesDir,
 		Version:       "2.32.1",
@@ -76,7 +82,12 @@ func TestPatcherApplyAndRestore(t *testing.T) {
 
 func TestStaleBackupTrapOnHostUpdate(t *testing.T) {
 	tempDir := t.TempDir()
-	resourcesDir := filepath.Join(tempDir, "Contents", "Resources")
+	var resourcesDir string
+	if runtime.GOOS == "darwin" {
+		resourcesDir = filepath.Join(tempDir, "Contents", "Resources")
+	} else {
+		resourcesDir = filepath.Join(tempDir, "resources")
+	}
 	if err := os.MkdirAll(resourcesDir, 0755); err != nil {
 		t.Fatalf("failed to create mock resources dir: %v", err)
 	}
@@ -88,7 +99,7 @@ func TestStaleBackupTrapOnHostUpdate(t *testing.T) {
 	}
 
 	info := &host.HostInfo{
-		Platform:      "darwin",
+		Platform:      runtime.GOOS,
 		RootPath:      tempDir,
 		ResourcesPath: resourcesDir,
 		Version:       "1.0.0",
