@@ -1,0 +1,78 @@
+name: Bug report
+description: Something in AGY Boost does not work
+title: "[Bug]: "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please do not include tokens, credentials, conversation contents, or
+        other personal Antigravity data. If this is a security vulnerability,
+        report it privately instead — see SECURITY.md.
+
+  - type: input
+    id: version
+    attributes:
+      label: AGY Boost version
+      description: Shown in the Mods view sidebar.
+      placeholder: "0.0.0"
+    validations:
+      required: true
+
+  - type: input
+    id: host-version
+    attributes:
+      label: Antigravity version
+      placeholder: "2.11.0"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Where does it happen?
+      options:
+        - Installer
+        - Mods section inside Antigravity
+        - A mod
+        - Updating or reapplying
+        - Somewhere else
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: What you expected, and what happened instead.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open Mods section
+        2. ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: log
+    attributes:
+      label: Runtime log
+      description: >
+        Relevant lines from %APPDATA%\AGYBoost\runtime.log, if the problem
+        is inside Antigravity. Check it for anything personal before pasting.
+      render: text
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I am on the latest AGY Boost release
+          required: true
+        - label: I have removed anything personal from what I pasted
+          required: true

@@ -1,0 +1,108 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Job 1 (Fast Gate - PR & Push): Runs on ubuntu-latest in <60 seconds.
+  # Fails fast to abort immediately without wasting matrix runners.
+  fast-gate:
+    name: Fast Verification Gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+          cache: true
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.27.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Run fast check gate (typecheck, short Go unit tests, client tests)
+        run: pnpm run check:fast
+
+  # Job 2 (Integration & Host Matrix): Full multi-platform matrix test suite
+  integration-matrix:
+    name: Full Matrix (${{ matrix.os }})
+    needs: fast-gate
+    strategy:
+      fail-fast: true
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+          cache: true
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.27.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Run all tests (unit + client + integration)
+        run: pnpm run test:all
+
+      - name: Verify full build & invariants
+        run: pnpm check
+
+  # Job 3 (Cross-Platform Binaries Build): Builds distributables for Windows, Linux, and macOS
+  build-cross-platform:
+    name: Build Cross-Platform Binaries
+    needs: integration-matrix
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+          cache: true
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.27.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Build all platform binaries (Windows, Linux, macOS)
+        run: pnpm run build:all
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: agy-boost-binaries
+          path: dist/*
+          retention-days: 7

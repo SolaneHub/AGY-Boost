@@ -1,0 +1,11 @@
+{
+  "name": "agy-boost-client",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "esbuild index.ts --bundle --minify --outfile=dist/agy-boost.js --format=iife",
+    "test": "node --import ./__tests__/register-loader.mjs --test __tests__/*.test.ts",
+    "typecheck": "tsc --noEmit"
+  }
+}

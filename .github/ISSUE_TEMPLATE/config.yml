@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Question or idea
+    url: https://github.com/discussions
+    about: Ask about mods, plugins, or how something works.
+  - name: Security vulnerability
+    url: https://github.com/security/advisories
+    about: Report privately. Please do not open a public issue.
+  - name: Writing a mod
+    url: docs/README.md
+    about: Guides for mods and the plugin API.
