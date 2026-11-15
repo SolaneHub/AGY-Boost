@@ -15,6 +15,7 @@
     "allowUnreachableCode": false,
     "allowUnusedLabels": false,
     "skipLibCheck": true,
+    "types": ["node"],
     "noEmit": true
   },
   "include": ["src/sdk/**/*.d.ts", "src/client/**/*.ts"],
