@@ -128,6 +128,7 @@ async function main() {
       "--headless=new",
       "--disable-gpu",
       "--no-sandbox",
+      "--disable-dev-shm-usage",
       "--disable-background-networking",
       `--remote-debugging-port=${PORT}`,
       `--user-data-dir=${tmpDir}`,
