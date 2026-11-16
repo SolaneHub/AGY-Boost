@@ -173,6 +173,10 @@ Compile with `zig build-exe main.zig -target wasm32-freestanding -O ReleaseFast`
 - **Safe & Fully Reversible**: The original host archive is preserved as `_app.asar`. Uninstalling restores the original bundle byte-for-byte.
 - **Automatic Host Update Guardian**: Re-patches Antigravity seamlessly in the background when the application receives an official update.
 - **Non-Destructive User Data**: Mods and configurations live safely in `%APPDATA%\AGYBoost` (Windows), `~/Library/Application Support/AGYBoost` (macOS), or `~/.config/AGYBoost` (Linux), completely separate from host application binaries.
+- **In-Memory Diagnostic Ring Buffer**: Safe, zero-dependency circular FIFO diagnostics (`AGYBoost.diagnostics` / `window.__AGY_DIAGNOSTICS__`) tracking runtime lifecycle, metrics, and errors in memory without forbidden `console.*` logging.
+- **Optimized HTTP Streaming & Range Support**: Native `/mods/file` asset serving with HTTP Range requests (`206 Partial Content`) and conditional caching (`304 Not Modified`), keeping the daemon footprint strictly bounded under 10MB RAM.
+- **Windows NTFS Token Permission Hardening**: Cryptographic daemon authentication tokens are hardened on Windows NTFS via `icacls` ACLs (`/inheritance:r /grant:r "%USERNAME%":(R,W)`) alongside `0600` permissions on Unix/macOS.
+- **DOM Contract Drift Radar**: Automated Chrome Headless CDP verification continuously ensuring Antigravity flexbox invariants and DOM selectors remain intact across host updates.
 
 ---
 
@@ -216,9 +220,15 @@ src/
 ├── patcher/         Pure Go ASAR packer and reversible bootstrap patcher
 ├── daemon/          Native background daemon (<10MB RAM, HTTP/WebSocket IPC)
 ├── host/            Antigravity cross-platform installation detection
-├── client/          In-client Pure TypeScript runtime (Willow UI, Themes, Wasm)
+├── client/          In-client Pure TypeScript runtime (Willow UI, Themes, Wasm, Diagnostics)
 └── sdk/             TypeScript type definitions for mod authors (index.d.ts)
-dist/                Compiled native binaries (agy-boost, agy-boost.exe)
+dist/
+├── agy-boost                    Host native binary
+├── agy-boost-darwin-arm64       macOS Apple Silicon binary
+├── agy-boost-darwin-amd64       macOS Intel binary
+├── agy-boost-linux-amd64        Linux x86_64 binary
+├── agy-boost-windows-amd64.exe  Windows x86_64 executable
+└── agy-boost.js                 Client runtime bundle (<100KB IIFE)
 docs/                Official documentation & mod development guides
 docs/examples/       Detailed walkthroughs for UI, Wasm, and Go sidecar mods
 ```
@@ -235,29 +245,33 @@ pnpm install
 
 ### Commands
 
-| Command                     | Description                                                                      |
-| --------------------------- | -------------------------------------------------------------------------------- |
-| `pnpm run format`           | Auto-format all code across all languages (Prettier + gofmt)                     |
-| `pnpm run format:check`     | Check code formatting across all languages without modifying files               |
-| `pnpm run lint`             | Run linters for all languages (ESLint for TS/JS + go vet / golangci-lint for Go) |
-| `pnpm run lint:fix`         | Automatically fix lint and formatting issues across all languages                |
-| `pnpm run typecheck`        | Run typechecking across all languages (TypeScript client/SDK + Go packages)      |
-| `pnpm run test:fast`        | Fast pre-push feedback: typecheck, short unit tests, client test suite           |
-| `pnpm test`                 | Run full native Go test suite (unit + integration)                               |
-| `pnpm run test:integration` | Run end-to-end integration tests (`tests/integration/...`)                       |
-| `pnpm build`                | Bundle client runtime (esbuild) and compile host Go binary                       |
-| `pnpm run build:all`        | Cross-compile native binaries for macOS, Windows (`.exe`), and Linux             |
-| `pnpm check`                | Full verification pipeline (format:check + lint + test:all + build)              |
+| Command                     | Description                                                                                |
+| --------------------------- | ------------------------------------------------------------------------------------------ |
+| `pnpm run format`           | Auto-format all code across all languages (Prettier + gofmt)                               |
+| `pnpm run format:check`     | Check code formatting across all languages without modifying files                         |
+| `pnpm run lint`             | Run linters for all languages (ESLint for TS/JS + go vet / golangci-lint for Go)           |
+| `pnpm run lint:fix`         | Automatically fix lint and formatting issues across all languages                          |
+| `pnpm run typecheck`        | Run typechecking across all languages (TypeScript client/SDK + Go packages)                |
+| `pnpm run test:fast`        | Fast pre-push feedback: typecheck, short unit tests, client test suite                     |
+| `pnpm run test:stress`      | Run concurrent stress test harness with strict memory gating (<10MB RAM)                   |
+| `pnpm test`                 | Run full native Go test suite (unit + integration)                                         |
+| `pnpm run test:integration` | Run end-to-end integration tests (`tests/integration/...`)                                 |
+| `pnpm build`                | Bundle client runtime (esbuild) and compile host Go binary                                 |
+| `pnpm run build:all`        | Cross-compile native distribution matrix (darwin/arm64, darwin/amd64, linux, windows .exe) |
+| `pnpm check`                | Full verification pipeline (format:check + lint + test:all + build)                        |
 
-### Integration Testing
+### Testing & Verification Suites
 
-The integration test suite (`tests/integration/lifecycle_test.go`) verifies full lifecycle behavior using real simulated Antigravity directories:
+1. **Lifecycle Integration Suite (`tests/integration/lifecycle_test.go`)**: Verifies full lifecycle behavior using real simulated Antigravity directories:
+   - Stock unpatched detection
+   - Safe patching and bootstrap archive construction
+   - Runtime injection verification
+   - Host update scenario simulation (overwritten `app.asar` with existing `_app.asar`)
+   - Byte-for-byte unpatch restoration
 
-- Stock unpatched detection
-- Safe patching and bootstrap archive construction
-- Runtime injection verification
-- Host update scenario simulation (overwritten `app.asar` with existing `_app.asar`)
-- Byte-for-byte unpatch restoration
+2. **Concurrent Stress & Memory Gating (`tests/stress/daemon_stress_test.go`)**: Fires 100 concurrent requests across `/health`, `/mods`, and heavy synthetic WebAssembly streaming, asserting daemon heap memory stays `<8MB` and active system RAM remains `<10MB`.
+
+3. **DOM Contract Drift Radar (`tests/ci/test_dom_contract_drift.test.ts`)**: Uses Chrome Headless via CDP to continuously audit live DOM selectors and enforce Antigravity conversation flexbox invariants (`display: flex`, `flex-direction: column`, `flex-grow: 1`).
 
 Run integration tests directly via:
 

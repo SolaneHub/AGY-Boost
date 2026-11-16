@@ -21,8 +21,14 @@ function buildBinary(outPath, envVars = {}) {
 if (target === "all") {
   const hostOut = process.platform === "win32" ? "dist/agy-boost.exe" : "dist/agy-boost";
   buildBinary(hostOut);
-  buildBinary("dist/agy-boost.exe", { GOOS: "windows", GOARCH: "amd64" });
-  buildBinary("dist/agy-boost-linux", { GOOS: "linux", GOARCH: "amd64" });
+  buildBinary("dist/agy-boost-darwin-arm64", { GOOS: "darwin", GOARCH: "arm64" });
+  buildBinary("dist/agy-boost-darwin-amd64", { GOOS: "darwin", GOARCH: "amd64" });
+  buildBinary("dist/agy-boost-linux-amd64", { GOOS: "linux", GOARCH: "amd64" });
+  buildBinary("dist/agy-boost-windows-amd64.exe", { GOOS: "windows", GOARCH: "amd64" });
+} else if (target === "darwin-arm64") {
+  buildBinary("dist/agy-boost-darwin-arm64", { GOOS: "darwin", GOARCH: "arm64" });
+} else if (target === "darwin-amd64") {
+  buildBinary("dist/agy-boost-darwin-amd64", { GOOS: "darwin", GOARCH: "amd64" });
 } else if (target === "win") {
   buildBinary("dist/agy-boost.exe", { GOOS: "windows", GOARCH: "amd64" });
 } else if (target === "linux") {

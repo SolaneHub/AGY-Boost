@@ -14,9 +14,13 @@ When a mod runs inside Antigravity, two global namespaces are accessible:
 
 The global engine namespace available to all scripts:
 
-- **`AGYBoost.version`**: String version of AGY Boost (e.g. `"0.0.0"`).
+- **`AGYBoost.version`**: String version of AGY Boost (e.g. `"0.1.0"`).
 - **`AGYBoost.wasm.load<T>(source, imports?)`**: Loads and instantiates a WebAssembly module.
 - **`AGYBoost.daemon`**: Interacts with the native Go daemon (`isHealthy`, `spawn`, `kill`).
+- **`AGYBoost.diagnostics`** (or **`window.__AGY_DIAGNOSTICS__`**): In-memory circular FIFO diagnostic ring buffer (capacity: 100 entries) for tracking runtime events, errors, and performance metrics without forbidden `console.*` logging:
+  - `record(level, source, message, details?)`: Records an event with level (`"INFO" | "WARN" | "ERROR" | "METRIC"`), source identifier, message, and optional structured metadata.
+  - `getEntries()`: Returns a read-only snapshot copy of all recorded diagnostic events.
+  - `clear()`: Clears the in-memory buffer.
 - **`AGYBoost.ui.el(tag, attrs?, children?)`**: Builds DOM elements matching Willow Design System classes.
 - **`AGYBoost.ui.injectCSS(css)`**: Injects CSS directly into `<head>` and returns a cleanup function.
 - **`AGYBoost.ui.setTheme(variables)`**: Strongly typed CSS variables setter with autocompletion and rollback.
@@ -32,6 +36,7 @@ When loaded in managed mode:
 - **`mod.manifest`**: Read-only `mod.json` object.
 - **`mod.wasm`**: Mod-scoped WebAssembly loader.
 - **`mod.daemon`**: Mod-scoped background daemon manager (`isHealthy`, `spawn`, `kill`).
+- **`mod.diagnostics`**: Mod-scoped access to the in-memory diagnostic ring buffer.
 - **`mod.ui`**: Mod-scoped Willow UI and theming helper primitives.
 - **`mod.onDispose(fn)`**: Registers a cleanup callback executed when the mod is disabled, unloaded, or reloaded.
 
@@ -43,11 +48,16 @@ Mods communicating with the local Go daemon (`127.0.0.1:42042`) inherit the foll
 
 1. **Loopback Only**: All network communication stays strictly on the local machine (`127.0.0.1`).
 2. **CORS Restrictions**: Daemon endpoints enforce strict origin checking. Only Antigravity renderer origins (`http://127.0.0.1:*`, `https://127.0.0.1:*`, `http://localhost:*`, `https://localhost:*`) are accepted.
-3. **Loopback Token Authentication**:
+3. **Loopback Token Authentication & NTFS Hardening**:
    - The daemon automatically provisions a high-entropy 256-bit token stored at `~/.config/AGYBoost/.token` (Linux), `~/Library/Application Support/AGYBoost/.token` (macOS), or `%APPDATA%\AGYBoost\.token` (Windows).
+   - On Unix/macOS, the file is secured with strict `0600` permissions. On Windows NTFS systems, AGY Boost uses `icacls` to remove inheritance (`/inheritance:r`) and grant exclusive read/write access solely to the current user (`/grant:r "%USERNAME%":(R,W)`).
    - In client mod execution, `AGYBoost.daemon` automatically transmits this credential via the `X-AGY-Token` header for all privileged operations (`/mods`, `/mods/toggle`, `/mods/file`, `/daemon/spawn`, `/daemon/kill`).
    - Constant-time validation protects against timing attacks. Unauthorized requests receive `401 Unauthorized`.
-4. **Isolated User Data Storage**:
+4. **Optimized HTTP Streaming & Range Support**:
+   - Asset delivery via `/mods/file` uses native Go `http.ServeContent` streaming directly from the filesystem descriptor, keeping memory footprint bounded without full-file heap allocations.
+   - Supports HTTP Range headers (`206 Partial Content`) for streaming large audio, video, or WebAssembly chunks.
+   - Built-in conditional request caching via `Last-Modified` and `If-Modified-Since` returns `304 Not Modified`, eliminating redundant data transfer.
+5. **Isolated User Data Storage**:
    - Mods are stored in the user data directory:
      - **macOS**: `~/Library/Application Support/AGYBoost/mods/<mod-id>/`
      - **Windows**: `%APPDATA%\AGYBoost\mods\<mod-id>\`

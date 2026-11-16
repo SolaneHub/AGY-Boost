@@ -68,11 +68,26 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      - name: Setup Headless Chrome
+        id: setup-chrome
+        uses: browser-actions/setup-chrome@v1
+        with:
+          chrome-version: stable
+
       - name: Run all tests (unit + client + integration)
         run: pnpm run test:all
+        env:
+          CHROME_BIN: ${{ steps.setup-chrome.outputs.chrome-path }}
+
+      - name: Run E2E Flexbox & UI Invariant Tests
+        run: pnpm run test:e2e
+        env:
+          CHROME_BIN: ${{ steps.setup-chrome.outputs.chrome-path }}
 
       - name: Verify full build & invariants
         run: pnpm check
+        env:
+          CHROME_BIN: ${{ steps.setup-chrome.outputs.chrome-path }}
 
   # Job 3 (Cross-Platform Binaries Build): Builds distributables for Windows, Linux, and macOS
   build-cross-platform:

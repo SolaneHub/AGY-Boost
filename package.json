@@ -1,6 +1,6 @@
 {
   "name": "agy-boost",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "private": true,
   "description": "Native, ultra-fast modding platform for Google Antigravity (Go + Pure TS + Wasm).",
   "license": "MIT",
@@ -28,6 +28,7 @@
     "format": "prettier --write . && node scripts/format-go.mjs",
     "format:check": "prettier --check . && node scripts/format-go.mjs --check",
     "test:fast": "pnpm run typecheck && go test -short ./src/... && pnpm run test:client",
+    "test:stress": "go test -v ./tests/stress/...",
     "test:integration": "go test -v ./tests/...",
     "test:client": "node --import ./tests/harness/register-loader.mjs --test tests/core/*.test.ts tests/ui/*.test.ts tests/ci/*.test.ts",
     "test:e2e": "pnpm run build:client && node tests/e2e/test_flexbox_invariant.mjs",

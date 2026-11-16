@@ -84,6 +84,39 @@ func TestDaemonHandlers(t *testing.T) {
 		t.Errorf("expected %q, got %q", sampleCss, wFile.Body.String())
 	}
 
+	// Test http range request support via http.ServeContent
+	reqRange := httptest.NewRequest("GET", "/mods/file?id=sample-mod&file=theme.css", nil)
+	reqRange.Header.Set("Range", "bytes=0-5")
+	wRange := httptest.NewRecorder()
+	server.handleModFile(wRange, reqRange)
+	if wRange.Code != http.StatusPartialContent {
+		t.Errorf("expected 206 Partial Content for range request, got %d", wRange.Code)
+	}
+	if wRange.Body.String() != sampleCss[:6] {
+		t.Errorf("expected %q for range 0-5, got %q", sampleCss[:6], wRange.Body.String())
+	}
+
+	// Test wasm and json content types
+	sampleWasm := []byte("\x00asm\x01\x00\x00\x00")
+	_ = os.WriteFile(filepath.Join(dummyModDir, "module.wasm"), sampleWasm, 0644)
+	reqWasm := httptest.NewRequest("GET", "/mods/file?id=sample-mod&file=module.wasm", nil)
+	wWasm := httptest.NewRecorder()
+	server.handleModFile(wWasm, reqWasm)
+	if wWasm.Code != http.StatusOK {
+		t.Errorf("expected 200 OK for wasm file, got %d", wWasm.Code)
+	}
+	if wWasm.Header().Get("Content-Type") != "application/wasm" {
+		t.Errorf("expected application/wasm, got %s", wWasm.Header().Get("Content-Type"))
+	}
+
+	// Test non-existent file
+	reqMissing := httptest.NewRequest("GET", "/mods/file?id=sample-mod&file=nonexistent.js", nil)
+	wMissing := httptest.NewRecorder()
+	server.handleModFile(wMissing, reqMissing)
+	if wMissing.Code != http.StatusNotFound {
+		t.Errorf("expected 404 Not Found for missing file, got %d", wMissing.Code)
+	}
+
 	// Test path traversal rejection on file
 	reqBadFile := httptest.NewRequest("GET", "/mods/file?id=sample-mod&file=../../etc/passwd", nil)
 	wBadFile := httptest.NewRecorder()
@@ -321,5 +354,19 @@ func TestNewDaemonServerToken(t *testing.T) {
 	}
 	if srv2.Token != srv.Token {
 		t.Errorf("expected second daemon server to reuse existing token: got %s, want %s", srv2.Token, srv.Token)
+	}
+
+	// Verify writeSecureToken directly
+	testTokenDirect := "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789"
+	directTokenPath := filepath.Join(tempDir, ".token_direct")
+	if err := writeSecureToken(directTokenPath, testTokenDirect); err != nil {
+		t.Fatalf("writeSecureToken failed: %v", err)
+	}
+	directData, err := os.ReadFile(directTokenPath)
+	if err != nil {
+		t.Fatalf("failed to read direct token file: %v", err)
+	}
+	if string(directData) != testTokenDirect {
+		t.Errorf("token direct mismatch: got %s, want %s", string(directData), testTokenDirect)
 	}
 }

@@ -1,5 +1,5 @@
 /**
- * AGY Boost Mod SDK v0.0.0
+ * AGY Boost Mod SDK v0.1.0
  * Native modding platform for Google Antigravity.
  * Powered by Pure TypeScript (UI), WebAssembly (Compute), and Go (Daemons).
  */
@@ -256,11 +256,42 @@ export interface ModUI {
   closeModsView(): void;
 }
 
+export interface DiagnosticEntry {
+  timestamp: number;
+  level: "INFO" | "WARN" | "ERROR" | "METRIC";
+  source: string;
+  message: string;
+  details?: Record<string, unknown>;
+}
+
+export interface ModDiagnostics {
+  /**
+   * Records a diagnostic event into the in-memory circular FIFO ring buffer (capacity: 100).
+   */
+  record(
+    level: DiagnosticEntry["level"],
+    source: string,
+    message: string,
+    details?: Record<string, unknown>
+  ): DiagnosticEntry;
+
+  /**
+   * Retrieves an immutable snapshot of all recorded diagnostic entries.
+   */
+  getEntries(): readonly DiagnosticEntry[];
+
+  /**
+   * Clears all recorded diagnostic entries in the ring buffer.
+   */
+  clear(): void;
+}
+
 export interface ModContext {
   readonly manifest: ModManifest;
   readonly wasm: ModWasm;
   readonly daemon: ModDaemon;
   readonly ui: ModUI;
+  readonly diagnostics?: ModDiagnostics;
   /**
    * Register a teardown callback invoked when the mod is disabled or reloaded.
    */
@@ -271,10 +302,12 @@ export interface AGYBoostGlobal {
   readonly version: string;
   readonly wasm: ModWasm;
   readonly daemon: ModDaemon;
+  readonly diagnostics: ModDiagnostics;
   readonly ui: ModUI;
 }
 
 declare global {
   const AGYBoost: AGYBoostGlobal;
   const mod: ModContext;
+  const __AGY_DIAGNOSTICS__: ModDiagnostics;
 }

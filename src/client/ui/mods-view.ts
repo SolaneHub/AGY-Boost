@@ -19,6 +19,7 @@ let selectedModSource: TabType = "marketplace";
 const hiddenSiblings = new Map<HTMLElement, string>();
 const hiddenHeaderElements = new Map<HTMLElement, string>();
 let headerObserver: MutationObserver | null = null;
+let pendingHeaderRaf = 0;
 let currentTab: TabType = "marketplace";
 let searchQuery = "";
 let installedModsCollapsed = false;
@@ -113,13 +114,32 @@ export function openModsView(bridge: DaemonBridge): void {
   hiddenHeaderElements.clear();
   hideChatHeaderItems();
 
-  if (headerObserver) headerObserver.disconnect();
+  if (headerObserver) {
+    headerObserver.disconnect();
+    headerObserver = null;
+  }
+  if (pendingHeaderRaf !== 0) {
+    cancelAnimationFrame(pendingHeaderRaf);
+    pendingHeaderRaf = 0;
+  }
   headerObserver = new MutationObserver(() => {
-    if (isModsViewOpen()) {
-      hideChatHeaderItems();
-    }
+    if (pendingHeaderRaf !== 0) return;
+    pendingHeaderRaf = requestAnimationFrame(() => {
+      pendingHeaderRaf = 0;
+      if (isModsViewOpen()) {
+        hideChatHeaderItems();
+      }
+    });
   });
-  headerObserver.observe(document.body, { childList: true, subtree: true });
+
+  const headerTarget =
+    document.querySelector('[data-main-content-header="true"]') || document.querySelector("header");
+  if (headerTarget) {
+    headerObserver.observe(headerTarget, { childList: true, subtree: true });
+  } else {
+    // If header is not yet mounted, observe body non-subtree or wait until it attaches
+    headerObserver.observe(document.body, { childList: true, subtree: false });
+  }
 
   // Shell identical to Customizations
   const view = el("div", {
@@ -162,6 +182,10 @@ export function closeModsView(targetElement?: HTMLElement | null): void {
   updateSidebarActiveState(false, targetElement);
 
   // Disconnect header observer and restore hidden header elements
+  if (pendingHeaderRaf !== 0) {
+    cancelAnimationFrame(pendingHeaderRaf);
+    pendingHeaderRaf = 0;
+  }
   if (headerObserver) {
     headerObserver.disconnect();
     headerObserver = null;

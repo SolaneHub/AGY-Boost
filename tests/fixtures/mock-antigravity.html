@@ -102,12 +102,30 @@
               </div>
               <!-- Child 1: Composer Box -->
               <div id="child-1-composer" class="relative w-full px-4 pb-2 flex-shrink-0">
-                <div class="border border-[#333333] rounded-lg p-2 bg-[#1e1e1e] flex items-center">
+                <div
+                  class="border border-[#333333] rounded-lg p-2 bg-[#1e1e1e] flex flex-col gap-2"
+                >
                   <input
                     type="text"
                     placeholder="Send a message..."
                     class="bg-transparent border-none outline-none w-full text-sm text-white"
                   />
+                  <div class="flex items-center justify-between pt-1 border-t border-[#2a2a2a]">
+                    <div class="flex items-center gap-1.5">
+                      <button
+                        data-testid="model-selector-trigger"
+                        class="text-xs px-2 py-1 rounded bg-[#2a2a2a] text-gray-300 hover:text-white"
+                      >
+                        Gemini 2.5 Pro
+                      </button>
+                      <button
+                        data-testid="permissions-selector-trigger"
+                        class="text-xs px-2 py-1 rounded bg-[#2a2a2a] text-gray-300 hover:text-white"
+                      >
+                        Auto-Run
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>

@@ -92,7 +92,7 @@ func NewDaemonServerWithDir(port int, customUserDataDir string) (*DaemonServer, 
 		if err != nil {
 			return nil, fmt.Errorf("failed to generate secure token: %w", err)
 		}
-		if err := os.WriteFile(tokenPath, []byte(token), 0600); err != nil {
+		if err := writeSecureToken(tokenPath, token); err != nil {
 			return nil, fmt.Errorf("failed to save security token: %w", err)
 		}
 	}
@@ -173,7 +173,7 @@ func (s *DaemonServer) handleHealth(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]any{
 		"status":  "ok",
-		"version": "0.0.0",
+		"version": "0.1.0",
 		"uptime":  time.Since(s.startTime).String(),
 		"modsDir": s.modsDir,
 	})
@@ -286,9 +286,16 @@ func (s *DaemonServer) handleModFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	data, err := os.ReadFile(targetPath)
+	f, err := os.Open(targetPath)
 	if err != nil {
 		http.Error(w, "File not found", http.StatusNotFound)
+		return
+	}
+	defer f.Close()
+
+	stat, err := f.Stat()
+	if err != nil {
+		http.Error(w, "Failed to read file metadata", http.StatusInternalServerError)
 		return
 	}
 
@@ -305,8 +312,7 @@ func (s *DaemonServer) handleModFile(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	}
 
-	w.WriteHeader(http.StatusOK)
-	_, _ = w.Write(data)
+	http.ServeContent(w, r, filepath.Base(targetPath), stat.ModTime(), f)
 }
 
 func (s *DaemonServer) loadState() {

@@ -3,6 +3,7 @@
 // Strictly adheres to AGENTS.md (no console logging, flexbox invariants).
 
 import { DaemonBridge, ModInfo } from "../bridge/daemon.js";
+import { diagnostics } from "../diagnostics/ring-buffer.js";
 
 export type CleanupFn = () => void;
 
@@ -180,8 +181,11 @@ export async function syncModScripts(bridge: DaemonBridge): Promise<void> {
       }
 
       activeModCleanups.set(mod.id, cleanups);
-    } catch {
-      // Silently catch error to protect host stability (no console.error in runtime)
+    } catch (err) {
+      diagnostics.record("ERROR", "mods-runner", "Mod execution failed", {
+        modId: mod.id,
+        error: String(err),
+      });
       for (const fn of cleanups) {
         try {
           fn();

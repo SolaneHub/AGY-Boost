@@ -12,7 +12,7 @@ import (
 	"github.com/agy-boost/agy-boost/src/host"
 )
 
-const AGYBoostVersion = "0.0.0"
+const AGYBoostVersion = "0.1.0"
 
 // Apply installs the AGY Boost native patch into the target Antigravity installation.
 func Apply(info *host.HostInfo, runtimeJS []byte) error {

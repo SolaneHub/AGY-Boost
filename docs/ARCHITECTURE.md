@@ -47,6 +47,10 @@ The client runtime is injected directly into Antigravity's renderer:
 - **Zero Frameworks**: No React, Vue, or heavy dependencies in the injection bundle. The compiled `runtime.js` is bundled via esbuild (`--minify`, IIFE) into an optimized footprint of **~44 KB** uncompressed (~11.6 KB gzipped) containing the complete Willow UI engine, theme manager, daemon bridge, and full-featured marketplace.
 - **Willow Design System Integration**: Mod UI elements and the **AGY Boost Mods** navigation button reuse Antigravity's native Tailwind classes (`bg-card`, `text-card-foreground`, `hover:bg-muted/50`).
 - **Layout Safety Invariant**: The runtime strictly respects the host flexbox layout. Elements hiding siblings save their display state and restore to `""` (empty string) to prevent any collapse of `[data-testid="conversation-view"]`.
+- **In-Memory Diagnostic Ring Buffer (`src/client/diagnostics/ring-buffer.ts`)**:
+  - Zero-dependency, circular FIFO buffer (bounded to 100 entries) capturing runtime lifecycle events, warnings, performance metrics, and errors without invoking forbidden `console.*` methods.
+  - Exposed globally via `AGYBoost.diagnostics` and `window.__AGY_DIAGNOSTICS__` with `record()`, `getEntries()`, and `clear()`.
+  - Deeply integrated into mod runner lifecycle to capture and isolate faulty mod scripts cleanly.
 - **Modular Marketplace (`src/client/ui/marketplace/`)**:
   - `catalog.ts`: Typed, normalized catalog definition (`MarketplaceMod`) structuring featured extensions across categories (`compute`, `theme`, `sidecar`) with badge tags (`WASM`, `GO`, `OFFICIAL`, `FAST`, `UI`, `SIDECAR`).
   - `spotlight.ts`: Interactive hero carousel featuring animated mod cards with sway motion (`agy-spotlight-sway`), SVG circular progress indicators (`agy-spotlight-progress`), auto-rotation timer lifecycle management, and full accessibility pause handling (`prefers-reduced-motion: reduce`, hover/focus-within pause, tab visibility change detection).
@@ -60,15 +64,18 @@ The background daemon operates as a secure local sidecar for the client runtime:
 
 - **Loopback Binding**: Listens strictly on `127.0.0.1:42042`. It does not bind to external network interfaces (`0.0.0.0`).
 - **CORS Origin Restriction**: Requests with an `Origin` header are validated against an allowlist permitting only local origins (`http://127.0.0.1:*`, `http://localhost:*`, and `https://` variants used by Antigravity's internal language server). Arbitrary web origins are rejected with `403 Forbidden`.
-- **Token-Based Authentication**:
+- **Token-Based Authentication & Windows NTFS Hardening**:
   - Upon startup, the daemon generates a high-entropy 256-bit cryptographic token (64-character hex string) via `crypto/rand`.
-  - The token is stored with restricted permissions (`0600`) in the user data directory:
-    - **macOS**: `~/Library/Application Support/AGYBoost/.token`
-    - **Windows**: `%APPDATA%\AGYBoost\.token`
-    - **Linux**: `~/.config/AGYBoost/.token` (or `~/.config/agy-boost/.token` fallback)
+  - The token is stored with restricted permissions in the user data directory:
+    - **macOS / Linux**: `0600` permissions via `os.WriteFile`.
+    - **Windows NTFS**: Configured via `icacls <tokenPath> /inheritance:r /grant:r "%USERNAME%":(R,W)` to strip inherited ACLs and grant exclusive read/write access solely to the current user.
   - All privileged endpoints (`/mods`, `/mods/toggle`, `/mods/file`, `/daemon/spawn`, `/daemon/kill`) require the `X-AGY-Token` header.
   - Token verification uses constant-time comparison (`subtle.ConstantTimeCompare`) to prevent timing side-channel attacks.
   - The public `/health` endpoint is unauthenticated, enabling lightweight presence polling without leaking token state.
+- **Optimized HTTP Streaming & Range Support (`/mods/file`)**:
+  - Employs native Go `http.ServeContent` with direct OS file descriptors instead of full-file memory buffering.
+  - Full HTTP Range request support (`206 Partial Content`) for streaming large binaries and media files.
+  - Native conditional caching via `Last-Modified` / `If-Modified-Since` responding with `304 Not Modified`, minimizing loopback overhead and keeping resident memory bounded under 10MB RAM.
 
 ---
 
@@ -161,3 +168,10 @@ User data and mods are strictly decoupled from the Antigravity application direc
 - **Linux**: `~/.config/AGYBoost/mods/` (with fallback to `~/.config/agy-boost/mods/` if legacy directory exists)
 
 Because mods live in user data, Antigravity auto-updates will never overwrite or erase your installed mods.
+
+---
+
+## 8. Invariant Verification & Radar
+
+- **Automated DOM Contract Drift Radar (`tests/ci/test_dom_contract_drift.test.ts`)**: Uses Chrome Headless CDP to inspect rendered DOM contracts and verify that `[data-testid="conversation-view"]` and toolbar selectors maintain their flexbox invariants (`display: flex`, `flex-direction: column`, `flex-grow: 1`).
+- **Concurrent Stress & Memory Gating (`tests/stress/daemon_stress_test.go`)**: Simulates 100 concurrent requests across daemon endpoints and heavy WebAssembly asset transfers, validating that daemon heap allocations stay `<8MB` and active system RAM stays strictly `<10MB`.

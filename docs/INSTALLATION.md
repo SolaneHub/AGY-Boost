@@ -6,7 +6,15 @@ AGY Boost supports Windows, macOS, and Linux for standalone Google Antigravity 2
 
 ## 1. Quick Installation via CLI
 
-The native `agy-boost` binary handles detection, patching, and restoration automatically with zero external dependencies:
+The native `agy-boost` binary handles detection, patching, and restoration automatically with zero external dependencies.
+
+Precompiled binaries for each architecture are located in `dist/`:
+
+- **macOS Apple Silicon**: `dist/agy-boost-darwin-arm64`
+- **macOS Intel**: `dist/agy-boost-darwin-amd64`
+- **Linux x86_64**: `dist/agy-boost-linux-amd64`
+- **Windows x86_64**: `dist/agy-boost-windows-amd64.exe`
+- **Host Binary**: `dist/agy-boost` (or `dist/agy-boost.exe` on Windows)
 
 ### Check Status
 

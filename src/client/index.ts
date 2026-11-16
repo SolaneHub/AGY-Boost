@@ -1,4 +1,4 @@
-// AGY Boost v0.0.0 - Native Pure TypeScript Runtime
+// AGY Boost v0.1.0 - Native Pure TypeScript Runtime
 
 import { loadWasm } from "./wasm/loader.js";
 import { DaemonBridge } from "./bridge/daemon.js";
@@ -7,6 +7,7 @@ import { openModsView, closeModsView, isModsViewOpen } from "./ui/mods-view.js";
 import { el } from "./ui/dom.js";
 import { injectCSS, setTheme, observe, syncModStyles } from "./ui/theme.js";
 import { syncModScripts } from "./ui/mods-runner.js";
+import { diagnostics } from "./diagnostics/ring-buffer.js";
 import {
   mountHeader,
   mountComposer,
@@ -18,11 +19,12 @@ import {
 const bridge = new DaemonBridge();
 
 export const AGYBoost = {
-  version: "0.0.0",
+  version: "0.1.0",
   wasm: {
     load: loadWasm,
   },
   daemon: bridge,
+  diagnostics,
   ui: {
     el,
     injectCSS,
@@ -44,12 +46,14 @@ export const AGYBoost = {
 interface AGYGlobalWindow {
   AGYBoost?: typeof AGYBoost;
   __AGY_BOOST_INITIALIZED__?: boolean;
+  __AGY_DIAGNOSTICS__?: typeof diagnostics;
 }
 
 const globalObj = globalThis as unknown as AGYGlobalWindow;
 
 // Expose globally on window
 globalObj.AGYBoost = AGYBoost;
+globalObj.__AGY_DIAGNOSTICS__ = diagnostics;
 
 function initRuntime(): void {
   const root = typeof document !== "undefined" ? document.documentElement : null;
