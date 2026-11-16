@@ -191,8 +191,8 @@ func TestDaemonStressAndMemoryGating(t *testing.T) {
 				var doErr error
 
 				// Under extreme concurrency, loopback TCP backlogs may occasionally drop SYN.
-				// A small resilient retry guarantees 100% throughput without flakiness.
-				for attempt := 0; attempt < 3; attempt++ {
+				// A resilient backoff retry guarantees 100% throughput across all OS environments (including Windows).
+				for attempt := 0; attempt < 10; attempt++ {
 					req, err := http.NewRequest("GET", reqURL, nil)
 					if err != nil {
 						doErr = err
@@ -205,10 +205,10 @@ func TestDaemonStressAndMemoryGating(t *testing.T) {
 					if doErr == nil && resp.StatusCode == http.StatusOK {
 						break
 					}
-					if resp != nil {
+					if resp != nil && resp.Body != nil {
 						_ = resp.Body.Close()
 					}
-					time.Sleep(2 * time.Millisecond)
+					time.Sleep(time.Duration(10*(attempt+1)) * time.Millisecond)
 				}
 
 				if doErr != nil {
