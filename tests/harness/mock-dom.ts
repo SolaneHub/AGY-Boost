@@ -211,6 +211,13 @@ export class MockCSSStyleDeclaration {
   set bottom(val: string) {
     this.setProperty("bottom", val);
   }
+
+  get display(): string {
+    return this.getPropertyValue("display");
+  }
+  set display(val: string) {
+    this.setProperty("display", val);
+  }
 }
 
 function matchesSelectorPart(el: MockElement, sel: string): boolean {
@@ -223,11 +230,11 @@ function matchesSelectorPart(el: MockElement, sel: string): boolean {
   }
   // Handle .class
   if (sel.startsWith(".")) {
-    return el.className.split(/\s+/).includes(sel.slice(1));
+    return el.className.split(/\s+/u).includes(sel.slice(1));
   }
   // Handle [attr="value"] or [attr]
   if (sel.startsWith("[")) {
-    const attrMatch = sel.match(/^\[([^=\]]+)(?:="?([^"\]]*)"?)?\]$/);
+    const attrMatch = sel.match(/^\[([^=\]]+)(?:="?([^"\]]*)"?)?\]$/u);
     if (attrMatch) {
       const [, name, val] = attrMatch;
       if (!name) return false;
@@ -238,10 +245,10 @@ function matchesSelectorPart(el: MockElement, sel: string): boolean {
     }
   }
   // Handle tag[attr="value"]
-  const tagAttrMatch = sel.match(/^([a-zA-Z0-9_-]+)\[([^=\]]+)(?:="?([^"\]]*)"?)?\]$/);
+  const tagAttrMatch = sel.match(/^([a-zA-Z0-9_-]+)\[([^=\]]+)(?:="?([^"\]]*)"?)?\]$/u);
   if (tagAttrMatch) {
     const [, tag, name, val] = tagAttrMatch;
-    if (!tag || !name || el.tagName.toLowerCase() !== tag.toLowerCase()) return false;
+    if (!(tag && name) || el.tagName.toLowerCase() !== tag.toLowerCase()) return false;
     if (val !== undefined) {
       return el.getAttribute(name) === val;
     }
@@ -253,7 +260,7 @@ function matchesSelectorPart(el: MockElement, sel: string): boolean {
 }
 
 function queryAllDescendants(root: MockNode, selector: string): MockElement[] {
-  const parts = selector.trim().match(/(?:\[[^\]]+\]|[^\s[\]])+/g) || [];
+  const parts = selector.trim().match(/(?:\[[^\]]+\]|[^\s[\]])+/gu) || [];
   if (parts.length === 0 || !parts[0]) return [];
 
   let currentElements: MockElement[] = [];
@@ -266,7 +273,10 @@ function queryAllDescendants(root: MockNode, selector: string): MockElement[] {
     }
   };
 
-  collect(root, (el) => matchesSelectorPart(el, parts[0]!));
+  const firstPart = parts[0];
+  if (firstPart) {
+    collect(root, (el) => matchesSelectorPart(el, firstPart));
+  }
 
   for (let i = 1; i < parts.length; i++) {
     const part = parts[i];
@@ -308,6 +318,36 @@ export class MockElement extends MockNode {
   attributes = new Map<string, string>();
   listeners = new Map<string, MockEventListener[]>();
   style = new MockCSSStyleDeclaration();
+  clientHeight = 0;
+  scrollHeight = 0;
+  offsetHeight = 0;
+
+  get dataset(): Record<string, string> {
+    const data: Record<string, string> = {};
+    for (const [key, val] of this.attributes.entries()) {
+      if (key.startsWith("data-")) {
+        const camel = key.slice(5).replace(/-([a-z])/gu, (_, letter) => letter.toUpperCase());
+        data[camel] = val;
+      }
+    }
+    return new Proxy(data, {
+      set: (target, prop, value) => {
+        if (typeof prop === "string") {
+          target[prop] = String(value);
+          const kebab = `data-${prop.replace(/([A-Z])/gu, "-$1").toLowerCase()}`;
+          this.setAttribute(kebab, String(value));
+          return true;
+        }
+        return false;
+      },
+      get: (target, prop) => {
+        if (typeof prop === "string") {
+          return target[prop];
+        }
+        return undefined;
+      },
+    });
+  }
 
   constructor(public tagName: string) {
     super();
@@ -326,7 +366,7 @@ export class MockElement extends MockNode {
   }
 
   getAttribute(name: string): string | null {
-    return this.attributes.has(name) ? this.attributes.get(name)! : null;
+    return this.attributes.get(name) ?? null;
   }
 
   removeAttribute(name: string): void {
@@ -390,7 +430,7 @@ export class MockElement extends MockNode {
     contains: (token: string) => boolean;
     toggle: (token: string, force?: boolean) => boolean;
   } {
-    const getTokens = () => (this.getAttribute("class") || "").split(/\s+/).filter(Boolean);
+    const getTokens = () => (this.getAttribute("class") || "").split(/\s+/u).filter(Boolean);
 
     const setTokens = (tokens: string[]) => {
       this.setAttribute("class", tokens.join(" "));
@@ -412,12 +452,13 @@ export class MockElement extends MockNode {
       toggle: (token: string, force?: boolean) => {
         const current = getTokens();
         const has = current.includes(token);
-        const shouldAdd = force !== undefined ? force : !has;
+        const shouldAdd = force === undefined ? !has : force;
         if (shouldAdd && !has) {
           current.push(token);
           setTokens(current);
           return true;
-        } else if (!shouldAdd && has) {
+        }
+        if (!shouldAdd && has) {
           setTokens(current.filter((t) => t !== token));
           return false;
         }
@@ -472,7 +513,7 @@ export class MockDocument extends MockNode {
   }
 
   getElementById(id: string): MockElement | null {
-    return this.querySelector("#" + id);
+    return this.querySelector(`#${id}`);
   }
 
   querySelector(selector: string): MockElement | null {
@@ -540,12 +581,12 @@ export class MockMutationObserver {
   }> = [];
 
   constructor(
-    public callback: (mutations: MockMutationRecord[], observer: MockMutationObserver) => void
+    public callback: (mutations: MockMutationRecord[], observer: MockMutationObserver) => void,
   ) {}
 
   observe(
     target: MockNode,
-    options?: { subtree?: boolean; childList?: boolean; attributes?: boolean } | undefined
+    options?: { subtree?: boolean; childList?: boolean; attributes?: boolean } | undefined,
   ): void {
     MockMutationObserver.activeObservers.push({
       observer: this,
@@ -556,7 +597,7 @@ export class MockMutationObserver {
 
   disconnect(): void {
     MockMutationObserver.activeObservers = MockMutationObserver.activeObservers.filter(
-      (entry) => entry.observer !== this
+      (entry) => entry.observer !== this,
     );
   }
 
@@ -566,7 +607,7 @@ export class MockMutationObserver {
     addedNodes: MockNode[];
     removedNodes: MockNode[];
   }): void {
-    for (const entry of [...this.activeObservers]) {
+    for (const entry of [...MockMutationObserver.activeObservers]) {
       if (
         entry.target === record.target ||
         (entry.options?.subtree && entry.target.contains(record.target))
@@ -579,7 +620,7 @@ export class MockMutationObserver {
   }
 
   static notifyMutation(record: MockMutationRecord): void {
-    for (const entry of [...this.activeObservers]) {
+    for (const entry of [...MockMutationObserver.activeObservers]) {
       if (
         entry.target === record.target ||
         (entry.options?.subtree && entry.target.contains(record.target))
@@ -592,28 +633,36 @@ export class MockMutationObserver {
   }
 }
 
-interface GlobalDOMScope {
+interface GlobalDomScope {
   document?: unknown;
   Node?: unknown;
   HTMLElement?: unknown;
   MutationObserver?: unknown;
   window?: unknown;
+  getComputedStyle?: unknown;
 }
 
 export function setupMockDOM(): () => void {
-  const globalScope = globalThis as unknown as GlobalDOMScope;
+  const globalScope = globalThis as unknown as GlobalDomScope;
   const origDocument = globalScope.document;
   const origNode = globalScope.Node;
   const origElement = globalScope.HTMLElement;
   const origMutationObserver = globalScope.MutationObserver;
   const origWindow = globalScope.window;
+  const origGetComputedStyle = globalScope.getComputedStyle;
 
   const mockDoc = new MockDocument();
+  const mockGetComputedStyle = (el: MockElement) => el.style;
+
+  (
+    mockDoc as unknown as { getComputedStyle?: (el: MockElement) => MockCSSStyleDeclaration }
+  ).getComputedStyle = mockGetComputedStyle;
   globalScope.document = mockDoc;
   globalScope.Node = MockNode;
   globalScope.HTMLElement = MockElement;
   globalScope.MutationObserver = MockMutationObserver;
   globalScope.window = mockDoc;
+  globalScope.getComputedStyle = mockGetComputedStyle;
 
   return () => {
     globalScope.document = origDocument;
@@ -621,5 +670,6 @@ export function setupMockDOM(): () => void {
     globalScope.HTMLElement = origElement;
     globalScope.MutationObserver = origMutationObserver;
     globalScope.window = origWindow;
+    globalScope.getComputedStyle = origGetComputedStyle;
   };
 }

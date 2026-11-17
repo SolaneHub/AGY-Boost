@@ -30,6 +30,7 @@ If `display: block` is set inline:
 When implementing custom full-viewport overlays (such as the Skills view `#gemini-skills-view`) that hide siblings inside `getMainViewportContainer()`:
 
 1. **Never default previous display to `'block'`**:
+
    ```javascript
    // WRONG (destroys flexbox on restore):
    child.dataset.geminiSkillsHidden = child.style.display || "block";
@@ -39,6 +40,7 @@ When implementing custom full-viewport overlays (such as the Skills view `#gemin
    ```
 2. **Always restore to empty string `""`**:
    In React / Tailwind applications, elements almost never use inline styles for display. Restoring to `""` removes the inline style and allows the element's CSS classes (`flex`, etc.) to take effect:
+
    ```javascript
    if (child.dataset.geminiSkillsHidden !== undefined) {
      const prev = child.dataset.geminiSkillsHidden;
@@ -63,7 +65,7 @@ When implementing custom full-viewport overlays (such as the Skills view `#gemin
 ### Never Terminate Antigravity.exe
 
 - Do **not** run commands like `taskkill /f /im Antigravity.exe` or kill the host process. The user may be actively working in the host application.
-- Use `scripts/dev-inspect.mjs` or WebSocket CDP calls to inspect or trigger hot updates.
+- Use `tests/tooling/dev-inspect.mjs` or WebSocket CDP calls to inspect or trigger hot updates.
 
 ### External Reference Repositories are Read-Only
 
@@ -82,23 +84,28 @@ AGY Boost is built on a 100% native, ultra-lightweight stack:
 ### Verification Commands:
 
 1. **Format Check & Linting (All Languages)**:
+
    ```bash
    pnpm format:check
    pnpm lint
    ```
 2. **Typecheck (Pure TS + Mod SDK + Go Packages)**:
+
    ```bash
    pnpm typecheck
    ```
 3. **Run Test Suites**:
+
    ```bash
    pnpm test
    ```
 4. **Build Runtime & Native Binary**:
+
    ```bash
    pnpm build
    ```
 5. **Full Verification**:
+
    ```bash
    pnpm check
    ```

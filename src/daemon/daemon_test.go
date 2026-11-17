@@ -3,12 +3,14 @@ package daemon
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 func TestDaemonHandlers(t *testing.T) {
@@ -368,5 +370,204 @@ func TestNewDaemonServerToken(t *testing.T) {
 	}
 	if string(directData) != testTokenDirect {
 		t.Errorf("token direct mismatch: got %s, want %s", string(directData), testTokenDirect)
+	}
+}
+
+func TestModsCacheAndInvalidation(t *testing.T) {
+	tempDir := t.TempDir()
+	modsDir := filepath.Join(tempDir, "mods")
+	if err := os.MkdirAll(modsDir, 0755); err != nil {
+		t.Fatalf("failed to create mods dir: %v", err)
+	}
+
+	testToken := "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+	server := &DaemonServer{
+		Port:     42042,
+		Token:    testToken,
+		modsDir:  modsDir,
+		procs:    make(map[string]*exec.Cmd),
+		disabled: make(map[string]bool),
+	}
+
+	// Step 1: Initial call with empty mods dir
+	reqMods := httptest.NewRequest("GET", "/mods", nil)
+	wMods1 := httptest.NewRecorder()
+	server.handleMods(wMods1, reqMods)
+	if wMods1.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK, got %d", wMods1.Code)
+	}
+
+	var mods1 []ModManifest
+	_ = json.Unmarshal(wMods1.Body.Bytes(), &mods1)
+	if len(mods1) != 0 {
+		t.Fatalf("expected 0 mods initially, got %d", len(mods1))
+	}
+
+	// Verify cache is populated and valid
+	server.modsCacheMu.RLock()
+	if !server.cacheValid {
+		t.Errorf("expected cache to be valid after handleMods")
+	}
+	server.modsCacheMu.RUnlock()
+
+	// Step 2: Add a new mod to the filesystem and change directory mtime
+	mod1Dir := filepath.Join(modsDir, "mod-alpha")
+	_ = os.MkdirAll(mod1Dir, 0755)
+	manifest1 := ModManifest{
+		ID:          "mod-alpha",
+		Name:        "Mod Alpha",
+		Version:     "1.0.0",
+		Description: "Alpha mod",
+	}
+	data1, _ := json.Marshal(manifest1)
+	_ = os.WriteFile(filepath.Join(mod1Dir, "mod.json"), data1, 0644)
+
+	// Ensure directory mtime is distinctly newer
+	newTime := time.Now().Add(2 * time.Second)
+	_ = os.Chtimes(modsDir, newTime, newTime)
+
+	// Step 3: Call handleMods again - watcher / mtime check should detect changes and refresh cache
+	wMods2 := httptest.NewRecorder()
+	server.handleMods(wMods2, reqMods)
+	if wMods2.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK, got %d", wMods2.Code)
+	}
+
+	var mods2 []ModManifest
+	_ = json.Unmarshal(wMods2.Body.Bytes(), &mods2)
+	if len(mods2) != 1 || mods2[0].ID != "mod-alpha" {
+		t.Fatalf("expected 1 mod with ID 'mod-alpha', got %v", mods2)
+	}
+
+	// Step 4: Toggle mod enabled state
+	toggleBody, _ := json.Marshal(map[string]any{"id": "mod-alpha", "enabled": false})
+	reqToggle := httptest.NewRequest("POST", "/mods/toggle", bytes.NewReader(toggleBody))
+	wToggle := httptest.NewRecorder()
+	server.handleModToggle(wToggle, reqToggle)
+	if wToggle.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK for toggle, got %d", wToggle.Code)
+	}
+
+	// Step 5: Immediately read /mods - cache should reflect disabled state
+	wMods3 := httptest.NewRecorder()
+	server.handleMods(wMods3, reqMods)
+	var mods3 []ModManifest
+	_ = json.Unmarshal(wMods3.Body.Bytes(), &mods3)
+	if len(mods3) != 1 || mods3[0].Enabled {
+		t.Fatalf("expected mod-alpha to be disabled in cached response, got enabled=%v", mods3[0].Enabled)
+	}
+
+	// Step 6: Test InvalidateCache explicitly
+	server.InvalidateCache()
+	server.modsCacheMu.RLock()
+	if server.cacheValid {
+		t.Errorf("expected cacheValid to be false after InvalidateCache()")
+	}
+	server.modsCacheMu.RUnlock()
+}
+
+func TestDiagnosticsEndpoint(t *testing.T) {
+	tempDir := t.TempDir()
+	server, err := NewDaemonServerWithDir(0, tempDir)
+	if err != nil {
+		t.Fatalf("failed to create daemon server: %v", err)
+	}
+
+	routes := server.routes()
+
+	// 1. Unauthenticated request without token must return 401
+	reqNoAuth := httptest.NewRequest("GET", "/diagnostics", nil)
+	wNoAuth := httptest.NewRecorder()
+	routes.ServeHTTP(wNoAuth, reqNoAuth)
+	if wNoAuth.Code != http.StatusUnauthorized {
+		t.Fatalf("expected 401 Unauthorized without token, got %d", wNoAuth.Code)
+	}
+
+	// 2. Request with invalid token must return 401
+	reqBadAuth := httptest.NewRequest("GET", "/diagnostics", nil)
+	reqBadAuth.Header.Set("X-AGY-Token", "invalid-token-1234567890abcdef")
+	wBadAuth := httptest.NewRecorder()
+	routes.ServeHTTP(wBadAuth, reqBadAuth)
+	if wBadAuth.Code != http.StatusUnauthorized {
+		t.Fatalf("expected 401 Unauthorized with bad token, got %d", wBadAuth.Code)
+	}
+
+	// 3. Authenticated request with valid token must return 200 OK
+	reqAuth := httptest.NewRequest("GET", "/diagnostics", nil)
+	reqAuth.Header.Set("X-AGY-Token", server.Token)
+	wAuth := httptest.NewRecorder()
+	routes.ServeHTTP(wAuth, reqAuth)
+	if wAuth.Code != http.StatusOK {
+		t.Fatalf("expected 200 OK with valid token, got %d", wAuth.Code)
+	}
+
+	var resp DiagnosticsResponse
+	if err := json.Unmarshal(wAuth.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("failed to parse diagnostics response: %v", err)
+	}
+
+	// Validate JSON fields
+	if resp.Uptime == "" {
+		t.Error("expected non-empty uptime string")
+	}
+	if resp.UptimeSeconds < 0 {
+		t.Errorf("expected non-negative uptimeSeconds, got %f", resp.UptimeSeconds)
+	}
+	if resp.Goroutines <= 0 {
+		t.Errorf("expected at least 1 goroutine, got %d", resp.Goroutines)
+	}
+	if resp.ActiveGoroutines != resp.Goroutines {
+		t.Errorf("expected activeGoroutines (%d) == goroutines (%d)", resp.ActiveGoroutines, resp.Goroutines)
+	}
+	// Resident memory must be strictly < 10MB RAM (10240 KB)
+	if resp.ResidentMemoryKB >= 10240 {
+		t.Errorf("resident memory footprint %d KB exceeded 10MB limit (10240 KB)", resp.ResidentMemoryKB)
+	}
+	if resp.ResidentMemoryKB == 0 {
+		t.Error("expected residentMemoryKB > 0")
+	}
+	if resp.EnabledMods != 0 {
+		t.Errorf("expected 0 enabled mods initially, got %d", resp.EnabledMods)
+	}
+	if len(resp.Logs) == 0 {
+		t.Error("expected at least 1 log entry from server initialization")
+	}
+
+	// 4. Test enabled mods count in diagnostics
+	modsDir := filepath.Join(tempDir, "mods")
+	modDir := filepath.Join(modsDir, "active-mod")
+	_ = os.MkdirAll(modDir, 0755)
+	manifest := ModManifest{
+		ID:      "active-mod",
+		Name:    "Active Mod",
+		Version: "1.0.0",
+		Enabled: true,
+	}
+	data, _ := json.Marshal(manifest)
+	_ = os.WriteFile(filepath.Join(modDir, "mod.json"), data, 0644)
+	server.InvalidateCache()
+
+	wAuth2 := httptest.NewRecorder()
+	routes.ServeHTTP(wAuth2, reqAuth)
+	var resp2 DiagnosticsResponse
+	_ = json.Unmarshal(wAuth2.Body.Bytes(), &resp2)
+	if resp2.EnabledMods != 1 || resp2.EnabledModsCount != 1 {
+		t.Errorf("expected 1 enabled mod, got enabledMods=%d, enabledModsCount=%d", resp2.EnabledMods, resp2.EnabledModsCount)
+	}
+
+	// 5. Test ring buffer capacity bounding via Log
+	for i := 0; i < 60; i++ {
+		server.Log("DEBUG", fmt.Sprintf("diag event %d", i))
+	}
+	wAuth3 := httptest.NewRecorder()
+	routes.ServeHTTP(wAuth3, reqAuth)
+	var resp3 DiagnosticsResponse
+	_ = json.Unmarshal(wAuth3.Body.Bytes(), &resp3)
+	if len(resp3.Logs) != 50 {
+		t.Fatalf("expected exactly 50 logs in ring buffer, got %d", len(resp3.Logs))
+	}
+	lastLog := resp3.Logs[len(resp3.Logs)-1]
+	if lastLog.Message != "diag event 59" {
+		t.Errorf("expected last log to be 'diag event 59', got %q", lastLog.Message)
 	}
 }

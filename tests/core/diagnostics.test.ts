@@ -1,4 +1,4 @@
-import { test, describe, beforeEach } from "node:test";
+import { test as it, describe, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import { DiagnosticRingBuffer, diagnostics } from "../../src/client/diagnostics/ring-buffer.js";
 
@@ -9,7 +9,7 @@ describe("Diagnostic Ring Buffer (DiagnosticRingBuffer)", () => {
     ringBuffer = new DiagnosticRingBuffer();
   });
 
-  test("records events with timestamp, level, source, message and details", () => {
+  it("records events with timestamp, level, source, message and details", () => {
     const before = Date.now();
     const entry = ringBuffer.record("INFO", "test-source", "test message", {
       key: "value",
@@ -29,7 +29,7 @@ describe("Diagnostic Ring Buffer (DiagnosticRingBuffer)", () => {
     assert.deepEqual(entries[0], entry);
   });
 
-  test("records events without details when optional parameter omitted", () => {
+  it("records events without details when optional parameter omitted", () => {
     const entry = ringBuffer.record("WARN", "system", "disk full");
 
     assert.equal(entry.level, "WARN");
@@ -39,7 +39,7 @@ describe("Diagnostic Ring Buffer (DiagnosticRingBuffer)", () => {
     assert.equal(ringBuffer.getEntries().length, 1);
   });
 
-  test("enforces circular FIFO limit of 100 entries", () => {
+  it("enforces circular FIFO limit of 100 entries", () => {
     // Insert 150 items
     for (let i = 1; i <= 150; i++) {
       ringBuffer.record("METRIC", "counter", `event-${i}`, { idx: i });
@@ -55,10 +55,10 @@ describe("Diagnostic Ring Buffer (DiagnosticRingBuffer)", () => {
 
     // Oldest 50 items (1..50) must have been evicted, retaining 51..150
     assert.equal(first.message, "event-51");
-    assert.equal(first.details?.idx, 51);
+    assert.equal(first.details?.["idx"], 51);
 
     assert.equal(last.message, "event-150");
-    assert.equal(last.details?.idx, 150);
+    assert.equal(last.details?.["idx"], 150);
 
     // Check chronological order across the retained items
     for (let i = 0; i < entries.length; i++) {
@@ -68,7 +68,7 @@ describe("Diagnostic Ring Buffer (DiagnosticRingBuffer)", () => {
     }
   });
 
-  test("returns an immutable/isolated copy from getEntries()", () => {
+  it("returns an immutable/isolated copy from getEntries()", () => {
     ringBuffer.record("INFO", "core", "msg 1");
     const entries = ringBuffer.getEntries();
     assert.equal(entries.length, 1);
@@ -83,7 +83,7 @@ describe("Diagnostic Ring Buffer (DiagnosticRingBuffer)", () => {
     assert.equal(ringBuffer.getEntries().length, 1);
   });
 
-  test("clears all recorded entries on clear()", () => {
+  it("clears all recorded entries on clear()", () => {
     ringBuffer.record("INFO", "core", "event 1");
     ringBuffer.record("ERROR", "core", "event 2");
     assert.equal(ringBuffer.getEntries().length, 2);
@@ -100,7 +100,7 @@ describe("Diagnostic Ring Buffer (DiagnosticRingBuffer)", () => {
     assert.equal(item.message, "event 3");
   });
 
-  test("exports a functional default singleton instance", () => {
+  it("exports a functional default singleton instance", () => {
     diagnostics.clear();
     assert.equal(diagnostics.getEntries().length, 0);
 

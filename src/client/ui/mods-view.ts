@@ -1,7 +1,7 @@
 // AGY Boost Mods View (100% Willow Design System Parity, Pure TypeScript)
 
 import { el, createSvgIcon } from "./dom.js";
-import { DaemonBridge } from "../bridge/daemon.js";
+import type { DaemonBridge } from "../bridge/daemon.js";
 import { syncModStyles } from "./theme.js";
 import { syncModScripts } from "./mods-runner.js";
 import { updateSidebarActiveState } from "./sidebar.js";
@@ -38,7 +38,7 @@ function hideChatHeaderItems(): void {
 
   // 1. Left cluster (breadcrumbs, project worktree, conversation title)
   const leftCluster = header.querySelector<HTMLElement>(
-    ".agy-layout-vars.flex.items-center.gap-1.min-w-0.pl-2"
+    ".agy-layout-vars.flex.items-center.gap-1.min-w-0.pl-2",
   );
   if (leftCluster) {
     for (const child of Array.from(leftCluster.children)) {
@@ -105,7 +105,7 @@ export function openModsView(bridge: DaemonBridge): void {
   for (const child of Array.from(mainViewport.children)) {
     if (child instanceof HTMLElement) {
       hiddenSiblings.set(child, child.style.display || "");
-      child.dataset.agyBoostHidden = child.style.display || "";
+      child.dataset["agyBoostHidden"] = child.style.display || "";
       child.style.display = "none";
     }
   }
@@ -207,7 +207,7 @@ export function closeModsView(targetElement?: HTMLElement | null): void {
   const header = document.querySelector('[data-main-content-header="true"]');
   if (header) {
     const leftCluster = header.querySelector<HTMLElement>(
-      ".agy-layout-vars.flex.items-center.gap-1.min-w-0.pl-2"
+      ".agy-layout-vars.flex.items-center.gap-1.min-w-0.pl-2",
     );
     if (leftCluster) {
       for (const child of Array.from(leftCluster.children)) {
@@ -227,7 +227,7 @@ export function closeModsView(targetElement?: HTMLElement | null): void {
     if (child.isConnected) {
       child.style.display = prev === "" || prev === "none" || prev === "block" ? "" : prev;
     }
-    delete child.dataset.agyBoostHidden;
+    delete child.dataset["agyBoostHidden"];
   }
   hiddenSiblings.clear();
 
@@ -300,7 +300,7 @@ function renderView(scrollContainer: HTMLElement, bridge: DaemonBridge): void {
         renderView(scrollContainer, bridge);
       },
     },
-    ["Marketplace"]
+    ["Marketplace"],
   );
 
   const btnInstalled = el(
@@ -315,7 +315,7 @@ function renderView(scrollContainer: HTMLElement, bridge: DaemonBridge): void {
         renderView(scrollContainer, bridge);
       },
     },
-    ["Installed"]
+    ["Installed"],
   );
 
   navTabs.appendChild(btnMarketplace);
@@ -344,7 +344,7 @@ function renderView(scrollContainer: HTMLElement, bridge: DaemonBridge): void {
   const searchPath = document.createElementNS("http://www.w3.org/2000/svg", "path");
   searchPath.setAttribute(
     "d",
-    "M781.69-136.92L530.46-388.16q-30,24.77-69,38.77t-80.69,14q-102.46,0-173.54-71.08T136.16-580t71.08-173.54t173.54-71.08t173.54,71.08T625.38-580q0,42.85-14.38,81.85t-38.38,67.85L823.84-179.08l-42.15,42.15ZM380.77-395.38q77.31,0 130.96-53.65T565.39-580T511.73-710.96T380.77-764.62T249.81-710.96T196.15-580t53.65,130.96t130.96,53.65Z"
+    "M781.69-136.92L530.46-388.16q-30,24.77-69,38.77t-80.69,14q-102.46,0-173.54-71.08T136.16-580t71.08-173.54t173.54-71.08t173.54,71.08T625.38-580q0,42.85-14.38,81.85t-38.38,67.85L823.84-179.08l-42.15,42.15ZM380.77-395.38q77.31,0 130.96-53.65T565.39-580T511.73-710.96T380.77-764.62T249.81-710.96T196.15-580t53.65,130.96t130.96,53.65Z",
   );
   searchSvg.appendChild(searchPath);
 
@@ -383,7 +383,7 @@ function renderView(scrollContainer: HTMLElement, bridge: DaemonBridge): void {
 async function renderContent(
   container: HTMLElement,
   bridge: DaemonBridge,
-  scrollContainer: HTMLElement
+  scrollContainer: HTMLElement,
 ): Promise<void> {
   container.innerHTML = "";
 
@@ -397,7 +397,7 @@ async function renderContent(
 function renderMarketplaceTab(
   container: HTMLElement,
   bridge: DaemonBridge,
-  scrollContainer: HTMLElement
+  scrollContainer: HTMLElement,
 ): void {
   const query = searchQuery.trim().toLowerCase();
 
@@ -420,8 +420,8 @@ function renderMarketplaceTab(
         },
         (modId: string) => {
           openModDetail(modId, "marketplace");
-        }
-      )
+        },
+      ),
     );
   }
 
@@ -510,7 +510,7 @@ function renderMarketplaceTab(
             openModDetail(mod.id, "marketplace");
           },
         },
-        [mod.name]
+        [mod.name],
       );
 
       const titleContainer = el("div", { class: "font-medium text-foreground truncate" }, [
@@ -568,10 +568,10 @@ function renderMarketplaceTab(
         },
         [
           createSvgIcon(
-            `<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 -960 960 960" fill="currentColor"><path d="M450-450H250q-12.75,0-21.37-8.63T220-480.01t8.62-21.37T250-510H450V-710q0-12.75 8.63-21.37T480.01-740t21.37,8.62T510-710v200H710q12.75,0 21.37,8.63T740-479.99t-8.62,21.37T710-450H510v200q0,12.75-8.63,21.37T479.99-220t-21.37-8.62T450-250V-450Z"/></svg>`
+            `<svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 -960 960 960" fill="currentColor"><path d="M450-450H250q-12.75,0-21.37-8.63T220-480.01t8.62-21.37T250-510H450V-710q0-12.75 8.63-21.37T480.01-740t21.37,8.62T510-710v200H710q12.75,0 21.37,8.63T740-479.99t-8.62,21.37T710-450H510v200q0,12.75-8.63,21.37T479.99-220t-21.37-8.62T450-250V-450Z"/></svg>`,
           ),
           "See more",
-        ]
+        ],
       ),
     ]);
     section.appendChild(seeMoreBtn);
@@ -591,7 +591,7 @@ function renderMarketplaceTab(
         el("p", { class: "text-xs text-muted-foreground" }, [
           "Try searching by category, language, or keyword.",
         ]),
-      ]
+      ],
     );
     flexCol.appendChild(emptyState);
   }
@@ -614,9 +614,9 @@ function renderMarketplaceTab(
           },
           [
             "AGY Boost native mods run locally on your machine with direct in-client DOM access, WebAssembly acceleration, and loopback daemon IPC.",
-          ]
+          ],
         ),
-      ]
+      ],
     );
     marketplaceWrapper.appendChild(footer);
   }
@@ -627,7 +627,7 @@ function renderMarketplaceTab(
 async function renderInstalledTab(
   container: HTMLElement,
   bridge: DaemonBridge,
-  scrollContainer: HTMLElement
+  scrollContainer: HTMLElement,
 ): Promise<void> {
   const isHealthy = await bridge.isHealthy();
   const allMods = await bridge.getMods();
@@ -676,10 +676,10 @@ async function renderInstalledTab(
           class:
             "inline-flex items-center text-[11px] leading-4 px-2 py-0.5 rounded-full shrink-0 font-normal bg-muted text-muted-foreground",
         },
-        [String(allMods.length)]
+        [String(allMods.length)],
       ),
       createSvgIcon(chevronSvg),
-    ]
+    ],
   );
 
   const folderLabel = el("span", {}, ["Open Folder"]);
@@ -700,7 +700,7 @@ async function renderInstalledTab(
               await navigator.clipboard.writeText(res.path);
             } catch {}
           }
-          const isMac = typeof navigator !== "undefined" && /mac/i.test(navigator.userAgent || "");
+          const isMac = typeof navigator !== "undefined" && /mac/iu.test(navigator.userAgent || "");
           const successMsg = isMac ? "Opened in Finder!" : "Opened in Explorer!";
           folderLabel.textContent = res.ok ? successMsg : "Copied Path!";
           setTimeout(() => {
@@ -716,10 +716,10 @@ async function renderInstalledTab(
     },
     [
       createSvgIcon(
-        `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 -960 960 960" fill="currentColor"><path d="M160-160q-33 0-56.5-23.5T80-240v-480q0-33 23.5-56.5T160-800h240l80 80h320q33 0 56.5 23.5T880-640v400q0 33-23.5 56.5T800-160H160Zm0-80h640v-400H447l-80-80H160v480Zm0 0v-480 480Z"/></svg>`
+        `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 -960 960 960" fill="currentColor"><path d="M160-160q-33 0-56.5-23.5T80-240v-480q0-33 23.5-56.5T160-800h240l80 80h320q33 0 56.5 23.5T880-640v400q0 33-23.5 56.5T800-160H160Zm0-80h640v-400H447l-80-80H160v480Zm0 0v-480 480Z"/></svg>`,
       ),
       folderLabel,
-    ]
+    ],
   );
 
   const sectionHeader = el("div", { class: "flex items-center justify-between gap-4 pl-3" }, [
@@ -757,9 +757,9 @@ async function renderInstalledTab(
               renderView(scrollContainer, bridge);
             },
           },
-          ["Browse Marketplace"]
+          ["Browse Marketplace"],
         ),
-      ]
+      ],
     );
     installedContent.appendChild(empty);
   } else {
@@ -801,7 +801,7 @@ async function renderInstalledTab(
             openModDetail(mod.id, "installed");
           },
         },
-        [mod.name]
+        [mod.name],
       );
 
       const titleContainer = el("div", { class: "font-medium text-foreground truncate" }, [
@@ -843,7 +843,7 @@ async function renderInstalledTab(
               mod.enabled ? "translate-x-4" : "translate-x-0"
             }`,
           }),
-        ]
+        ],
       );
 
       const moreActionsBtn = el(
@@ -859,9 +859,9 @@ async function renderInstalledTab(
         },
         [
           createSvgIcon(
-            `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 -960 960 960" fill="currentColor"><path d="M480-189.23q-24.75,0-42.37-17.62T420-249.23t17.62-42.37T480-309.23t42.37,17.62T540-249.23t-17.62,42.37T480-189.23ZM480-420q-24.75,0-42.37-17.62T420-480t17.62-42.37T480-540t42.37,17.62T540-480t-17.62,42.37T480-420Zm0-230.77q-24.75,0-42.37-17.62T420-710.77t17.62-42.37T480-770.77t42.37,17.62T540-710.77t-17.62,42.37T480-650.77Z"/></svg>`
+            `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 -960 960 960" fill="currentColor"><path d="M480-189.23q-24.75,0-42.37-17.62T420-249.23t17.62-42.37T480-309.23t42.37,17.62T540-249.23t-17.62,42.37T480-189.23ZM480-420q-24.75,0-42.37-17.62T420-480t17.62-42.37T480-540t42.37,17.62T540-480t-17.62,42.37T480-420Zm0-230.77q-24.75,0-42.37-17.62T420-710.77t17.62-42.37T480-770.77t42.37,17.62T540-710.77t-17.62,42.37T480-650.77Z"/></svg>`,
           ),
-        ]
+        ],
       );
 
       actionBox.appendChild(toggleBtn);
@@ -933,10 +933,10 @@ async function renderInstalledTab(
           class:
             "inline-flex items-center text-[11px] leading-4 px-2 py-0.5 rounded-full shrink-0 font-normal bg-muted text-muted-foreground",
         },
-        [String(skillsList.length)]
+        [String(skillsList.length)],
       ),
       createSvgIcon(skillsChevronSvg),
-    ]
+    ],
   );
 
   const skillsHeader = el("div", { class: "flex items-center justify-between gap-4 pl-3" }, [
@@ -951,7 +951,7 @@ async function renderInstalledTab(
   const skillsInnerCol = el("div", { class: "flex flex-col" });
 
   for (const s of skillsList) {
-    const modId = s.name.replace(/^\//, "");
+    const modId = s.name.replace(/^\//u, "");
     const item = el(
       "div",
       {
@@ -974,7 +974,7 @@ async function renderInstalledTab(
               el("span", { class: "font-medium flex-shrink-0 text-foreground" }, [s.name]),
               el("span", { class: "text-muted-foreground truncate", title: s.desc }, [s.desc]),
             ]),
-          ]
+          ],
         ),
         el(
           "div",
@@ -994,13 +994,13 @@ async function renderInstalledTab(
               },
               [
                 createSvgIcon(
-                  `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 -960 960 960" fill="currentColor"><path d="M480-189.23q-24.75,0-42.37-17.62T420-249.23t17.62-42.37T480-309.23t42.37,17.62T540-249.23t-17.62,42.37T480-189.23ZM480-420q-24.75,0-42.37-17.62T420-480t17.62-42.37T480-540t42.37,17.62T540-480t-17.62,42.37T480-420Zm0-230.77q-24.75,0-42.37-17.62T420-710.77t17.62-42.37T480-770.77t42.37,17.62T540-710.77t-17.62,42.37T480-650.77Z"/></svg>`
+                  `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 -960 960 960" fill="currentColor"><path d="M480-189.23q-24.75,0-42.37-17.62T420-249.23t17.62-42.37T480-309.23t42.37,17.62T540-249.23t-17.62,42.37T480-189.23ZM480-420q-24.75,0-42.37-17.62T420-480t17.62-42.37T480-540t42.37,17.62T540-480t-17.62,42.37T480-420Zm0-230.77q-24.75,0-42.37-17.62T420-710.77t17.62-42.37T480-770.77t42.37,17.62T540-710.77t-17.62,42.37T480-650.77Z"/></svg>`,
                 ),
-              ]
+              ],
             ),
-          ]
+          ],
         ),
-      ]
+      ],
     );
     skillsInnerCol.appendChild(item);
   }
@@ -1035,10 +1035,10 @@ async function renderInstalledTab(
           class:
             "inline-flex items-center text-[11px] leading-4 px-2 py-0.5 rounded-full shrink-0 font-normal bg-muted text-muted-foreground",
         },
-        ["0"]
+        ["0"],
       ),
       createSvgIcon(agentsChevronSvg),
-    ]
+    ],
   );
 
   const agentsHeader = el("div", { class: "flex items-center justify-between gap-4 pl-3" }, [
@@ -1052,7 +1052,7 @@ async function renderInstalledTab(
       class: "pl-3 text-sm text-muted-foreground",
       style: customAgentsCollapsed ? "display: none;" : "",
     },
-    ["No custom agents yet."]
+    ["No custom agents yet."],
   );
   agentsSection.appendChild(agentsContent);
   flexCol.appendChild(agentsSection);
@@ -1084,10 +1084,10 @@ async function renderInstalledTab(
           class:
             "inline-flex items-center text-[11px] leading-4 px-2 py-0.5 rounded-full shrink-0 font-normal bg-muted text-muted-foreground",
         },
-        ["1"]
+        ["1"],
       ),
       createSvgIcon(mcpChevronSvg),
-    ]
+    ],
   );
 
   const mcpHeader = el("div", { class: "flex items-center justify-between gap-4 pl-3" }, [
@@ -1124,10 +1124,10 @@ async function renderInstalledTab(
                 class: "text-muted-foreground truncate",
                 title: "http://127.0.0.1:42042 • Native Go Daemon Loopback Bridge",
               },
-              ["http://127.0.0.1:42042 • Native Go Daemon Loopback Bridge"]
+              ["http://127.0.0.1:42042 • Native Go Daemon Loopback Bridge"],
             ),
           ]),
-        ]
+        ],
       ),
       el(
         "div",
@@ -1147,13 +1147,13 @@ async function renderInstalledTab(
             },
             [
               createSvgIcon(
-                `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 -960 960 960" fill="currentColor"><path d="M480-189.23q-24.75,0-42.37-17.62T420-249.23t17.62-42.37T480-309.23t42.37,17.62T540-249.23t-17.62,42.37T480-189.23ZM480-420q-24.75,0-42.37-17.62T420-480t17.62-42.37T480-540t42.37,17.62T540-480t-17.62,42.37T480-420Zm0-230.77q-24.75,0-42.37-17.62T420-710.77t17.62-42.37T480-770.77t42.37,17.62T540-710.77t-17.62,42.37T480-650.77Z"/></svg>`
+                `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 -960 960 960" fill="currentColor"><path d="M480-189.23q-24.75,0-42.37-17.62T420-249.23t17.62-42.37T480-309.23t42.37,17.62T540-249.23t-17.62,42.37T480-189.23ZM480-420q-24.75,0-42.37-17.62T420-480t17.62-42.37T480-540t42.37,17.62T540-480t-17.62,42.37T480-420Zm0-230.77q-24.75,0-42.37-17.62T420-710.77t17.62-42.37T480-770.77t42.37,17.62T540-710.77t-17.62,42.37T480-650.77Z"/></svg>`,
               ),
-            ]
+            ],
           ),
-        ]
+        ],
       ),
-    ]
+    ],
   );
   mcpContent.appendChild(mcpItem);
   mcpSection.appendChild(mcpContent);
@@ -1186,10 +1186,10 @@ async function renderInstalledTab(
           class:
             "inline-flex items-center text-[11px] leading-4 px-2 py-0.5 rounded-full shrink-0 font-normal bg-muted text-muted-foreground",
         },
-        ["3"]
+        ["3"],
       ),
       createSvgIcon(engineChevronSvg),
-    ]
+    ],
   );
 
   const enginesHeader = el("div", { class: "flex items-center justify-between gap-4 pl-3" }, [
@@ -1219,9 +1219,9 @@ async function renderInstalledTab(
         },
         [
           createSvgIcon(
-            `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>`
+            `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>`,
           ),
-        ]
+        ],
       ),
       el("div", { class: "flex-1 min-w-0 flex flex-col gap-0.5 pr-4" }, [
         el("div", { class: "flex items-center gap-1.5 min-w-0" }, [
@@ -1240,7 +1240,7 @@ async function renderInstalledTab(
           class: `w-2.5 h-2.5 rounded-full ${isHealthy ? "bg-emerald-500 shadow-sm shadow-emerald-500/50" : "bg-amber-500"}`,
         }),
       ]),
-    ]
+    ],
   );
 
   // Engine 2: WebAssembly Compute Engine
@@ -1259,9 +1259,9 @@ async function renderInstalledTab(
         },
         [
           createSvgIcon(
-            `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m10 15 5-3-5-3v6Z"/></svg>`
+            `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m10 15 5-3-5-3v6Z"/></svg>`,
           ),
-        ]
+        ],
       ),
       el("div", { class: "flex-1 min-w-0 flex flex-col gap-0.5 pr-4" }, [
         el("div", { class: "flex items-center gap-1.5 min-w-0" }, [
@@ -1278,7 +1278,7 @@ async function renderInstalledTab(
           class: "w-2.5 h-2.5 rounded-full bg-purple-500 shadow-sm shadow-purple-500/50",
         }),
       ]),
-    ]
+    ],
   );
 
   // Engine 3: Pure TypeScript Runtime
@@ -1297,9 +1297,9 @@ async function renderInstalledTab(
         },
         [
           createSvgIcon(
-            `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>`
+            `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>`,
           ),
-        ]
+        ],
       ),
       el("div", { class: "flex-1 min-w-0 flex flex-col gap-0.5 pr-4" }, [
         el("div", { class: "flex items-center gap-1.5 min-w-0" }, [
@@ -1314,7 +1314,7 @@ async function renderInstalledTab(
       el("div", { class: "relative z-10 flex-shrink-0 flex items-center pr-2" }, [
         el("div", { class: "w-2.5 h-2.5 rounded-full bg-sky-500 shadow-sm shadow-sky-500/50" }),
       ]),
-    ]
+    ],
   );
 
   enginesGrid.appendChild(daemonCard);
@@ -1344,7 +1344,7 @@ function getMainViewportContainer(): HTMLElement | null {
   const auxPane = document.querySelector<HTMLElement>('[data-testid="aux-pane-split"]');
   if (auxPane) {
     const content = auxPane.querySelector<HTMLElement>(
-      ".flex-1.min-h-0.flex.flex-col > .flex-1.min-h-0"
+      ".flex-1.min-h-0.flex.flex-col > .flex-1.min-h-0",
     );
     if (content) return content;
   }

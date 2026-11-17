@@ -144,6 +144,11 @@ func TestDaemonStressAndMemoryGating(t *testing.T) {
 			expectedLen: 0,
 		},
 		{
+			endpoint:    "/diagnostics",
+			needsAuth:   true,
+			expectedLen: 0,
+		},
+		{
 			endpoint:    "/mods",
 			needsAuth:   true,
 			expectedLen: 0,
@@ -260,6 +265,48 @@ func TestDaemonStressAndMemoryGating(t *testing.T) {
 		t.Fatalf("Expected %d successful requests, got %d", expectedTotal, actualSuccess)
 	}
 
+	client.CloseIdleConnections()
+	runtime.GC()
+
+	// Verify /diagnostics endpoint response contract and auth rejection under stress
+	respNoAuth, err := client.Get(baseURL + "/diagnostics")
+	if err != nil {
+		t.Fatalf("failed to query /diagnostics without auth: %v", err)
+	}
+	_ = respNoAuth.Body.Close()
+	if respNoAuth.StatusCode != http.StatusUnauthorized {
+		t.Errorf("expected 401 Unauthorized for /diagnostics without auth, got %d", respNoAuth.StatusCode)
+	}
+
+	reqDiag, _ := http.NewRequest("GET", baseURL+"/diagnostics", nil)
+	reqDiag.Header.Set("X-AGY-Token", server.Token)
+	respDiag, err := client.Do(reqDiag)
+	if err != nil {
+		t.Fatalf("failed to query /diagnostics with auth: %v", err)
+	}
+	var diagPayload struct {
+		Uptime           string  `json:"uptime"`
+		UptimeSeconds    float64 `json:"uptimeSeconds"`
+		ResidentMemoryKB uint64  `json:"residentMemoryKB"`
+		Goroutines       int     `json:"goroutines"`
+		ActiveGoroutines int     `json:"activeGoroutines"`
+		EnabledMods      int     `json:"enabledMods"`
+		Logs             []any   `json:"logs"`
+	}
+	err = json.NewDecoder(respDiag.Body).Decode(&diagPayload)
+	_ = respDiag.Body.Close()
+	if err != nil {
+		t.Fatalf("failed to decode /diagnostics JSON payload: %v", err)
+	}
+	if diagPayload.ResidentMemoryKB >= 10240 {
+		t.Errorf("reported residentMemoryKB %d exceeded 10MB limit (10240 KB)", diagPayload.ResidentMemoryKB)
+	}
+	if len(diagPayload.Logs) > 50 {
+		t.Errorf("expected at most 50 logs, got %d", len(diagPayload.Logs))
+	}
+
+	client.CloseIdleConnections()
+
 	// Step 5: Raccogli le metriche di memoria tramite runtime.ReadMemStats(&memStats)
 	// e tramite ispezione dell'allocazione heap:
 	// - Asserisci che memStats.Alloc sia inferiore a 8 MB.
@@ -302,5 +349,130 @@ func TestDaemonStressAndMemoryGating(t *testing.T) {
 	if activeSysBytes >= maxSysBytes {
 		t.Fatalf("MEMORY GATING BREACH: active system memory exceeds threshold! Got: %.2f MB (%d bytes), Max allowed: 10.00 MB (%d bytes)",
 			float64(activeSysBytes)/(1024*1024), activeSysBytes, maxSysBytes)
+	}
+}
+
+func TestDiagnosticsZeroMemoryLeak(t *testing.T) {
+	tempUserData := t.TempDir()
+	serverPort := getFreePort(t)
+
+	server, err := daemon.NewDaemonServerWithDir(serverPort, tempUserData)
+	if err != nil {
+		t.Fatalf("failed to initialize daemon server: %v", err)
+	}
+
+	listener, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", serverPort))
+	if err != nil {
+		t.Fatalf("failed to listen on port %d: %v", serverPort, err)
+	}
+	defer listener.Close()
+
+	httpServer := &http.Server{Handler: server.Routes()}
+	defer httpServer.Close()
+
+	go func() {
+		_ = httpServer.Serve(listener)
+	}()
+
+	baseURL := fmt.Sprintf("http://127.0.0.1:%d", serverPort)
+	client := &http.Client{
+		Timeout: 5 * time.Second,
+	}
+
+	// Wait for server ready
+	ready := false
+	for attempt := 0; attempt < 50; attempt++ {
+		resp, err := client.Get(baseURL + "/health")
+		if err == nil && resp.StatusCode == http.StatusOK {
+			_ = resp.Body.Close()
+			ready = true
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	if !ready {
+		t.Fatalf("daemon server failed to spin up")
+	}
+
+	// Warm-up and log entries
+	for i := 0; i < 30; i++ {
+		server.Log("INFO", fmt.Sprintf("warm-up event %d", i))
+	}
+
+	// Execute 200 concurrent requests specifically targeting /diagnostics
+	const numReqs = 200
+	var wg sync.WaitGroup
+	errCh := make(chan error, numReqs)
+
+	for i := 0; i < numReqs; i++ {
+		wg.Add(1)
+		go func(idx int) {
+			defer wg.Done()
+			req, err := http.NewRequest("GET", baseURL+"/diagnostics", nil)
+			if err != nil {
+				errCh <- err
+				return
+			}
+			req.Header.Set("X-AGY-Token", server.Token)
+			resp, err := client.Do(req)
+			if err != nil {
+				errCh <- err
+				return
+			}
+			defer resp.Body.Close()
+
+			if resp.StatusCode != http.StatusOK {
+				errCh <- fmt.Errorf("[%d] expected 200 OK, got %d", idx, resp.StatusCode)
+				return
+			}
+
+			var payload struct {
+				Uptime           string `json:"uptime"`
+				ResidentMemoryKB uint64 `json:"residentMemoryKB"`
+				Goroutines       int    `json:"goroutines"`
+				EnabledMods      int    `json:"enabledMods"`
+				Logs             []any  `json:"logs"`
+			}
+			if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+				errCh <- fmt.Errorf("[%d] failed to decode json: %w", idx, err)
+				return
+			}
+			if payload.ResidentMemoryKB >= 10240 {
+				errCh <- fmt.Errorf("[%d] residentMemoryKB %d exceeded 10MB", idx, payload.ResidentMemoryKB)
+				return
+			}
+			if len(payload.Logs) > 50 {
+				errCh <- fmt.Errorf("[%d] logs count %d exceeded 50", idx, len(payload.Logs))
+				return
+			}
+		}(i)
+	}
+
+	wg.Wait()
+	close(errCh)
+
+	for reqErr := range errCh {
+		t.Errorf("Concurrent /diagnostics error: %v", reqErr)
+	}
+
+	client.CloseIdleConnections()
+
+	// Verify absence of memory leaks: Alloc < 8MB, HeapInuse < 10MB
+	runtime.GC()
+	runtime.GC()
+	debug.FreeOSMemory()
+
+	var memStats runtime.MemStats
+	runtime.ReadMemStats(&memStats)
+
+	t.Logf("[Diagnostics Memory Stability] Alloc: %.2f MB (%d bytes), HeapInuse: %.2f MB (%d bytes)",
+		float64(memStats.Alloc)/(1024*1024), memStats.Alloc,
+		float64(memStats.HeapInuse)/(1024*1024), memStats.HeapInuse)
+
+	if memStats.Alloc >= 8*1024*1024 {
+		t.Fatalf("Memory leak detected: Alloc %.2f MB exceeds 8MB threshold", float64(memStats.Alloc)/(1024*1024))
+	}
+	if memStats.HeapInuse >= 10*1024*1024 {
+		t.Fatalf("Memory leak detected: HeapInuse %.2f MB exceeds 10MB threshold", float64(memStats.HeapInuse)/(1024*1024))
 	}
 }

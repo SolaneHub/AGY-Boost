@@ -1,4 +1,4 @@
-import { test, describe, beforeEach, afterEach } from "node:test";
+import { test as it, describe, beforeEach, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import { DaemonBridge } from "../../src/client/bridge/daemon.js";
 
@@ -29,22 +29,22 @@ describe("DaemonBridge", () => {
     delete tokenScope.__AGY_TOKEN__;
   });
 
-  test("isHealthy returns true on 200 OK and calls /health", async () => {
+  it("isHealthy returns true on 200 OK and calls /health", async () => {
     mockFetchHandler = async (url) => {
-      assert.match(url, /\/health$/);
+      assert.match(url, /\/health$/u);
       return new Response("OK", { status: 200 });
     };
 
-    const bridge = new DaemonBridge(42042);
+    const bridge = new DaemonBridge(42_042);
     const healthy = await bridge.isHealthy();
     assert.equal(healthy, true);
     assert.equal(lastRequest?.url, "http://127.0.0.1:42042/health");
   });
 
-  test("isHealthy returns false on HTTP error or network failure", async () => {
+  it("isHealthy returns false on HTTP error or network failure", async () => {
     mockFetchHandler = async () => new Response("Service Unavailable", { status: 503 });
 
-    const bridge = new DaemonBridge(42042);
+    const bridge = new DaemonBridge(42_042);
     assert.equal(await bridge.isHealthy(), false);
 
     mockFetchHandler = async () => {
@@ -53,7 +53,7 @@ describe("DaemonBridge", () => {
     assert.equal(await bridge.isHealthy(), false);
   });
 
-  test("getMods calls /mods and includes X-AGY-Token header when configured", async () => {
+  it("getMods calls /mods and includes X-AGY-Token header when configured", async () => {
     tokenScope.__AGY_TOKEN__ = "secret-token-xyz";
 
     const dummyMods = [
@@ -68,7 +68,7 @@ describe("DaemonBridge", () => {
     ];
 
     mockFetchHandler = async (url, init) => {
-      assert.match(url, /\/mods$/);
+      assert.match(url, /\/mods$/u);
       const headers = (init?.headers as Record<string, string>) || {};
       assert.equal(headers["X-AGY-Token"], "secret-token-xyz");
       return new Response(JSON.stringify(dummyMods), {
@@ -84,11 +84,11 @@ describe("DaemonBridge", () => {
     assert.equal(lastRequest?.url, "http://127.0.0.1:9000/mods");
   });
 
-  test("toggleMod sends POST to /mods/toggle with JSON body and auth header", async () => {
+  it("toggleMod sends POST to /mods/toggle with JSON body and auth header", async () => {
     tokenScope.__AGY_TOKEN__ = "token-123";
 
     mockFetchHandler = async (url, init) => {
-      assert.match(url, /\/mods\/toggle$/);
+      assert.match(url, /\/mods\/toggle$/u);
       assert.equal(init?.method, "POST");
       const headers = (init?.headers as Record<string, string>) || {};
       assert.equal(headers["Content-Type"], "application/json");
@@ -98,20 +98,20 @@ describe("DaemonBridge", () => {
       return new Response("OK", { status: 200 });
     };
 
-    const bridge = new DaemonBridge(42042);
+    const bridge = new DaemonBridge(42_042);
     const success = await bridge.toggleMod("mod-abc", false);
     assert.equal(success, true);
   });
 
-  test("toggleMod returns false when daemon returns error status", async () => {
+  it("toggleMod returns false when daemon returns error status", async () => {
     mockFetchHandler = async () => new Response("Not found", { status: 404 });
 
-    const bridge = new DaemonBridge(42042);
+    const bridge = new DaemonBridge(42_042);
     const success = await bridge.toggleMod("unknown-mod", true);
     assert.equal(success, false);
   });
 
-  test("spawn and kill forward to spawnDaemon and killDaemon with global defaults", async () => {
+  it("spawn and kill forward to spawnDaemon and killDaemon with global defaults", async () => {
     mockFetchHandler = async (url, init) => {
       if (url.endsWith("/daemon/spawn")) {
         const body = JSON.parse(init?.body as string);
@@ -130,7 +130,7 @@ describe("DaemonBridge", () => {
       return new Response("Not found", { status: 404 });
     };
 
-    const bridge = new DaemonBridge(42042);
+    const bridge = new DaemonBridge(42_042);
     const spawnRes = await bridge.spawn("./bin");
     assert.equal(spawnRes.ok, true);
     assert.equal(spawnRes.pid, 1234);
@@ -139,11 +139,11 @@ describe("DaemonBridge", () => {
     assert.equal(killRes, true);
   });
 
-  test("openModsFolder sends POST to /mods/open-folder and returns ok and path", async () => {
+  it("openModsFolder sends POST to /mods/open-folder and returns ok and path", async () => {
     tokenScope.__AGY_TOKEN__ = "test-token-open";
 
     mockFetchHandler = async (url, init) => {
-      assert.match(url, /\/mods\/open-folder$/);
+      assert.match(url, /\/mods\/open-folder$/u);
       assert.equal(init?.method, "POST");
       const headers = (init?.headers as Record<string, string>) || {};
       assert.equal(headers["X-AGY-Token"], "test-token-open");
@@ -153,16 +153,16 @@ describe("DaemonBridge", () => {
       });
     };
 
-    const bridge = new DaemonBridge(42042);
+    const bridge = new DaemonBridge(42_042);
     const res = await bridge.openModsFolder();
     assert.equal(res.ok, true);
     assert.equal(res.path, "/home/user/mods");
   });
 
-  test("openModsFolder returns { ok: false } on server error or failure", async () => {
+  it("openModsFolder returns { ok: false } on server error or failure", async () => {
     mockFetchHandler = async () => new Response("Internal Server Error", { status: 500 });
 
-    const bridge = new DaemonBridge(42042);
+    const bridge = new DaemonBridge(42_042);
     const res = await bridge.openModsFolder();
     assert.equal(res.ok, false);
   });

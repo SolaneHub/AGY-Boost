@@ -2,7 +2,7 @@
 // Willow Design System & Zero-framework runtime integration.
 // Strictly adheres to AGENTS.md (no console logging, flexbox invariants).
 
-import { DaemonBridge, ModInfo } from "../bridge/daemon.js";
+import type { DaemonBridge, ModInfo } from "../bridge/daemon.js";
 import { diagnostics } from "../diagnostics/ring-buffer.js";
 
 export type CleanupFn = () => void;
@@ -16,7 +16,7 @@ export interface ModScriptContext {
   onDispose: (fn: CleanupFn) => void;
 }
 
-interface AGYGlobalContext {
+interface AgyGlobalContext {
   __AGY_ACTIVE_MOD_CLEANUPS__?: Map<string, CleanupFn[]>;
   AGYBoost?: {
     wasm?: unknown;
@@ -24,10 +24,11 @@ interface AGYGlobalContext {
   };
 }
 
-const globalObj = globalThis as unknown as AGYGlobalContext;
-const activeModCleanups: Map<string, CleanupFn[]> =
-  globalObj.__AGY_ACTIVE_MOD_CLEANUPS__ ||
-  (globalObj.__AGY_ACTIVE_MOD_CLEANUPS__ = new Map<string, CleanupFn[]>());
+const globalObj = globalThis as unknown as AgyGlobalContext;
+if (!globalObj.__AGY_ACTIVE_MOD_CLEANUPS__) {
+  globalObj.__AGY_ACTIVE_MOD_CLEANUPS__ = new Map<string, CleanupFn[]>();
+}
+const activeModCleanups: Map<string, CleanupFn[]> = globalObj.__AGY_ACTIVE_MOD_CLEANUPS__;
 
 /**
  * Unloads and executes all registered cleanup callbacks for a specific mod.
@@ -86,7 +87,7 @@ export async function syncModScripts(bridge: DaemonBridge): Promise<void> {
   const currentActiveIds = new Set<string>();
 
   for (const mod of mods) {
-    if (!mod.enabled || !mod.main) continue;
+    if (!(mod.enabled && mod.main)) continue;
     currentActiveIds.add(mod.id);
 
     // If script is already executing and tracked, skip re-execution
@@ -99,7 +100,7 @@ export async function syncModScripts(bridge: DaemonBridge): Promise<void> {
       code = null;
     }
 
-    if (!code || !code.trim()) continue;
+    if (!code?.trim()) continue;
 
     const cleanups: CleanupFn[] = [];
     const registerCleanup = (fn: CleanupFn) => {
@@ -121,8 +122,8 @@ export async function syncModScripts(bridge: DaemonBridge): Promise<void> {
     try {
       // Normalize ES module 'export default' syntax if present to CommonJS
       let sanitizedCode = code;
-      if (/^\s*export\s+default\s+/m.test(sanitizedCode)) {
-        sanitizedCode = sanitizedCode.replace(/^\s*export\s+default\s+/m, "module.exports = ");
+      if (/^\s*export\s+default\s+/mu.test(sanitizedCode)) {
+        sanitizedCode = sanitizedCode.replace(/^\s*export\s+default\s+/mu, "module.exports = ");
       }
 
       const modExports: Record<string, unknown> = {};
@@ -135,7 +136,7 @@ export async function syncModScripts(bridge: DaemonBridge): Promise<void> {
         "exports",
         `return (async function (context, AGYBoost, module, exports) {
           ${sanitizedCode}
-        })(context, AGYBoost, module, exports);`
+        })(context, AGYBoost, module, exports);`,
       );
 
       const result = await runner(context, agy, moduleObj, modExports);

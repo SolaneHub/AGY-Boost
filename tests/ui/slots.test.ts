@@ -1,4 +1,4 @@
-import { test, describe, before, after, beforeEach } from "node:test";
+import { test as it, describe, before, after, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import { setupMockDOM } from "../harness/mock-dom.js";
 import {
@@ -32,7 +32,7 @@ describe("Slots & UI Overlay Engine", () => {
   });
 
   describe("mountFloatingHUD", () => {
-    test("creates #agy-hud-container with correct styles and attaches element", () => {
+    it("creates #agy-hud-container with correct styles and attaches element", () => {
       const badge = el("div", { class: "my-badge" }, ["HUD Item"]);
       const unmount = mountFloatingHUD(badge);
 
@@ -54,14 +54,14 @@ describe("Slots & UI Overlay Engine", () => {
       assert.equal(
         document.getElementById("agy-hud-container"),
         null,
-        "Container should be removed when empty"
+        "Container should be removed when empty",
       );
       // Idempotency: multiple unmount calls do not throw
       unmount();
       assert.equal(document.getElementById("agy-hud-container"), null);
     });
 
-    test("supports multiple positions: top-left, bottom-right, bottom-left", () => {
+    it("supports multiple positions: top-left, bottom-right, bottom-left", () => {
       const tl = el("div", { id: "hud-tl" });
       const br = el("div", { id: "hud-br" });
       const bl = el("div", { id: "hud-bl" });
@@ -70,16 +70,16 @@ describe("Slots & UI Overlay Engine", () => {
       const u2 = mountFloatingHUD(br, { position: "bottom-right" });
       const u3 = mountFloatingHUD(bl, { position: "bottom-left" });
 
-      const container = document.getElementById("agy-hud-container")!;
+      const container = document.getElementById("agy-hud-container");
       assert.ok(container);
 
-      const slotTL = container.querySelector('[data-hud-position="top-left"]');
-      const slotBR = container.querySelector('[data-hud-position="bottom-right"]');
-      const slotBL = container.querySelector('[data-hud-position="bottom-left"]');
+      const slotTl = container.querySelector('[data-hud-position="top-left"]');
+      const slotBr = container.querySelector('[data-hud-position="bottom-right"]');
+      const slotBl = container.querySelector('[data-hud-position="bottom-left"]');
 
-      assert.ok(slotTL && slotTL.contains(tl));
-      assert.ok(slotBR && slotBR.contains(br));
-      assert.ok(slotBL && slotBL.contains(bl));
+      assert.ok(slotTl?.contains(tl));
+      assert.ok(slotBr?.contains(br));
+      assert.ok(slotBl?.contains(bl));
 
       // Unmount top-left only
       u1();
@@ -93,15 +93,17 @@ describe("Slots & UI Overlay Engine", () => {
       assert.equal(document.getElementById("agy-hud-container"), null);
     });
 
-    test("handles multiple elements in the same position and cleans up properly", () => {
+    it("handles multiple elements in the same position and cleans up properly", () => {
       const item1 = el("div", { id: "item1" });
       const item2 = el("div", { id: "item2" });
 
       const u1 = mountFloatingHUD(item1, { position: "top-right" });
       const u2 = mountFloatingHUD(item2, { position: "top-right" });
 
-      const container = document.getElementById("agy-hud-container")!;
-      const slot = container.querySelector('[data-hud-position="top-right"]')!;
+      const container = document.getElementById("agy-hud-container");
+      assert.ok(container);
+      const slot = container.querySelector('[data-hud-position="top-right"]');
+      assert.ok(slot);
       assert.equal(slot.childNodes.length, 2);
 
       u1();
@@ -114,7 +116,7 @@ describe("Slots & UI Overlay Engine", () => {
   });
 
   describe("mountHeader", () => {
-    test("mounts into header toolbar if [data-testid='pane-titlebar-toolbar'] exists", () => {
+    it("mounts into header toolbar if [data-testid='pane-titlebar-toolbar'] exists", () => {
       const header = el("header", { "data-main-content-header": "true" }, [
         el("div", { "data-testid": "pane-titlebar-toolbar" }),
       ]);
@@ -123,7 +125,8 @@ describe("Slots & UI Overlay Engine", () => {
       const button = el("button", { id: "header-action" }, ["Test Action"]);
       const unmount = mountHeader(button);
 
-      const toolbar = header.querySelector('[data-testid="pane-titlebar-toolbar"]')!;
+      const toolbar = header.querySelector('[data-testid="pane-titlebar-toolbar"]');
+      assert.ok(toolbar);
       assert.ok(toolbar.contains(button), "Button should be mounted in toolbar");
 
       unmount();
@@ -131,7 +134,7 @@ describe("Slots & UI Overlay Engine", () => {
       unmount(); // Idempotency check
     });
 
-    test("mounts into header element if no toolbar present", () => {
+    it("mounts into header element if no toolbar present", () => {
       const header = el("header", { "data-main-content-header": "true" });
       document.body.appendChild(header);
 
@@ -144,7 +147,7 @@ describe("Slots & UI Overlay Engine", () => {
       assert.equal(header.contains(status), false);
     });
 
-    test("mounts top-docked bar above mainBody when no header exists, preserving conversation view layout", () => {
+    it("mounts top-docked bar above mainBody when no header exists, preserving conversation view layout", () => {
       const main = el("main", { class: "flex-1 flex flex-col h-full" });
       const mainBody = el("div", { "data-main-content-body": "true" });
       const convView = el("div", {
@@ -169,11 +172,11 @@ describe("Slots & UI Overlay Engine", () => {
       assert.equal(
         document.getElementById("agy-header-dock"),
         null,
-        "Empty dock should be removed"
+        "Empty dock should be removed",
       );
     });
 
-    test("dynamically promotes element from fallback dock to toolbar when toolbar appears", () => {
+    it("dynamically promotes element from fallback dock to toolbar when toolbar appears", () => {
       // Start with only main container (no header yet)
       const main = el("main", { class: "flex-1 flex flex-col h-full" });
       const mainBody = el("div", { "data-main-content-body": "true" });
@@ -184,7 +187,7 @@ describe("Slots & UI Overlay Engine", () => {
       const unmount = mountHeader(widget);
 
       const initialDock = document.getElementById("agy-header-dock");
-      assert.ok(initialDock && initialDock.contains(widget), "Widget should start in dock");
+      assert.ok(initialDock?.contains(widget), "Widget should start in dock");
 
       // Now React mounts the content header with toolbar
       const header = el("header", { "data-main-content-header": "true" }, [
@@ -192,12 +195,13 @@ describe("Slots & UI Overlay Engine", () => {
       ]);
       main.insertBefore(header, mainBody);
 
-      const toolbar = header.querySelector('[data-testid="pane-titlebar-toolbar"]')!;
+      const toolbar = header.querySelector('[data-testid="pane-titlebar-toolbar"]');
+      assert.ok(toolbar);
       assert.ok(toolbar.contains(widget), "Widget should be automatically promoted to toolbar");
       assert.equal(
         document.getElementById("agy-header-dock"),
         null,
-        "Empty dock should be cleaned up"
+        "Empty dock should be cleaned up",
       );
 
       unmount();
@@ -206,7 +210,7 @@ describe("Slots & UI Overlay Engine", () => {
   });
 
   describe("mountComposer", () => {
-    test("mounts next to model selector trigger container when present", () => {
+    it("mounts next to model selector trigger container when present", () => {
       const conv = el("div", {
         "data-testid": "conversation-view",
         class: "flex flex-col h-full w-full",
@@ -228,7 +232,7 @@ describe("Slots & UI Overlay Engine", () => {
       assert.equal(
         pill.parentElement,
         footerRow,
-        "Pill should be mounted in footerRow next to model selector"
+        "Pill should be mounted in footerRow next to model selector",
       );
       assert.equal(pill.getAttribute("data-agy-mounted-slot"), "composer");
 
@@ -240,7 +244,7 @@ describe("Slots & UI Overlay Engine", () => {
       unmount(); // Idempotency check
     });
 
-    test("mounts next to permissions selector trigger if no model selector present", () => {
+    it("mounts next to permissions selector trigger if no model selector present", () => {
       const conv = el("div", { "data-testid": "conversation-view" });
       const permWrapper = el("div", { class: "shrink-0 flex items-center gap-0.5" });
       const permBtn = el("button", { "data-testid": "permissions-selector-trigger" }, ["Turbo"]);
@@ -258,7 +262,7 @@ describe("Slots & UI Overlay Engine", () => {
       assert.equal(pill.parentElement, null);
     });
 
-    test("mounts into composer root/footer as fallback", () => {
+    it("mounts into composer root/footer as fallback", () => {
       const conv = el("div", { "data-testid": "conversation-view" });
       const composerFooter = el("div", { "data-agent-composer-root": "" });
       conv.appendChild(composerFooter);
@@ -278,7 +282,7 @@ describe("Slots & UI Overlay Engine", () => {
     const dispatchDocEvent = (e: unknown) =>
       (document as unknown as { dispatchEvent: (ev: unknown) => boolean }).dispatchEvent(e);
 
-    test("registers shortcut and triggers handler with platform-normalized modifier", () => {
+    it("registers shortcut and triggers handler with platform-normalized modifier", () => {
       let triggered = 0;
       let lastEvent: KeyboardEvent | null = null;
 
@@ -331,7 +335,7 @@ describe("Slots & UI Overlay Engine", () => {
       unregister(); // Idempotency check
     });
 
-    test("handles Ctrl and Alt shortcuts", () => {
+    it("handles Ctrl and Alt shortcuts", () => {
       let altCount = 0;
       let ctrlCount = 0;
 
@@ -368,7 +372,7 @@ describe("Slots & UI Overlay Engine", () => {
       uCtrl();
     });
 
-    test("handles special keys: plus (++), space, esc, enter, arrow keys", () => {
+    it("handles special keys: plus (++), space, esc, enter, arrow keys", () => {
       let plusCount = 0;
       let spaceCount = 0;
       let escCount = 0;
@@ -441,7 +445,7 @@ describe("Slots & UI Overlay Engine", () => {
       uUp();
     });
 
-    test("parseCombo and matchesKeyboardEvent unit tests", () => {
+    it("parseCombo and matchesKeyboardEvent unit tests", () => {
       const macParsed = parseCombo("Cmd+Shift+K", true);
       assert.equal(macParsed.meta, true);
       assert.equal(macParsed.ctrl, false);
@@ -465,15 +469,15 @@ describe("Slots & UI Overlay Engine", () => {
             altKey: false,
             key: "",
           } as unknown as KeyboardEvent,
-          { ctrl: false, meta: true, shift: false, alt: false, key: "" }
+          { ctrl: false, meta: true, shift: false, alt: false, key: "" },
         ),
-        false
+        false,
       );
     });
   });
 
   describe("observeConversation", () => {
-    test("observes new elements appended to conversation-view and ignores composer", () => {
+    it("observes new elements appended to conversation-view and ignores composer", () => {
       const conv = el("div", {
         "data-testid": "conversation-view",
         class: "flex flex-col h-full",
@@ -506,7 +510,7 @@ describe("Slots & UI Overlay Engine", () => {
       disconnect(); // Idempotency check
     });
 
-    test("resubscribes when conversation-view is replaced on route switch", () => {
+    it("resubscribes when conversation-view is replaced on route switch", () => {
       // 1. Initial conversation view
       const conv1 = el("div", { "data-testid": "conversation-view" });
       document.body.appendChild(conv1);
@@ -533,7 +537,7 @@ describe("Slots & UI Overlay Engine", () => {
       assert.equal(
         observedNodes.length,
         2,
-        "Should observe messages in new conversation view after switch"
+        "Should observe messages in new conversation view after switch",
       );
       assert.equal(observedNodes[1], msg2);
 

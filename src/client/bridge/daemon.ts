@@ -17,14 +17,18 @@ export interface ModInfo {
 export class DaemonBridge {
   private baseUrl: string;
 
-  constructor(port = 42042) {
+  constructor(port = 42_042) {
     this.baseUrl = `http://127.0.0.1:${port}`;
   }
 
   private getAuthHeaders(): Record<string, string> {
     let token: string | null | undefined = (globalThis as { __AGY_TOKEN__?: string }).__AGY_TOKEN__;
-    if (!token && typeof document !== "undefined" && document.documentElement?.dataset?.agyToken) {
-      token = document.documentElement.dataset.agyToken;
+    if (
+      !token &&
+      typeof document !== "undefined" &&
+      document.documentElement?.dataset?.["agyToken"]
+    ) {
+      token = document.documentElement.dataset["agyToken"];
     }
     if (!token && typeof localStorage !== "undefined") {
       try {
@@ -85,7 +89,7 @@ export class DaemonBridge {
         `${this.baseUrl}/mods/file?id=${encodeURIComponent(id)}&file=${encodeURIComponent(file)}`,
         {
           headers: this.getAuthHeaders(),
-        }
+        },
       );
       if (!res.ok) return null;
       return await res.text();
@@ -121,7 +125,7 @@ export class DaemonBridge {
   async spawnDaemon(
     modId: string,
     binaryPath: string,
-    args: string[] = []
+    args: string[] = [],
   ): Promise<{ ok: boolean; pid?: number }> {
     try {
       const res = await fetch(`${this.baseUrl}/daemon/spawn`, {

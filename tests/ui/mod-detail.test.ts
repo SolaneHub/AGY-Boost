@@ -1,8 +1,8 @@
-import { test, describe, before, after, beforeEach } from "node:test";
+import { test as it, describe, before, after, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import { setupMockDOM } from "../harness/mock-dom.js";
 import { el } from "../../src/client/ui/dom.js";
-import { DaemonBridge } from "../../src/client/bridge/daemon.js";
+import type { DaemonBridge } from "../../src/client/bridge/daemon.js";
 import { renderModDetail } from "../../src/client/ui/marketplace/mod-detail.js";
 
 describe("Mod Detail View (renderModDetail)", () => {
@@ -37,7 +37,7 @@ describe("Mod Detail View (renderModDetail)", () => {
     openModsFolder: async () => ({ ok: true }),
   } as unknown as DaemonBridge;
 
-  test("renders 1:1 plugin detail shell with correct testid and title", async () => {
+  it("renders 1:1 plugin detail shell with correct testid and title", async () => {
     const container = el("div");
     document.body.appendChild(container);
     let backCalled = false;
@@ -59,14 +59,14 @@ describe("Mod Detail View (renderModDetail)", () => {
     assert.equal(h1?.textContent, "Effort Optimizer");
 
     const backBtn = container.querySelector<HTMLButtonElement>(
-      '[data-testid="plugin-detail-back-button"]'
+      '[data-testid="plugin-detail-back-button"]',
     );
     assert.ok(backBtn !== null, "Back button must exist");
     backBtn.click();
     assert.equal(backCalled, true, "onBack must be invoked when clicking back");
   });
 
-  test("renders suggested prompts list for catalog mod", async () => {
+  it("renders suggested prompts list for catalog mod", async () => {
     const container = el("div");
     document.body.appendChild(container);
 
@@ -85,7 +85,7 @@ describe("Mod Detail View (renderModDetail)", () => {
     assert.ok(rows.length > 0, "Should have at least one suggested prompt row");
   });
 
-  test("renders Overview and Skills tabs and switches panels", async () => {
+  it("renders Overview and Skills tabs and switches panels", async () => {
     const container = el("div");
     document.body.appendChild(container);
 
@@ -110,7 +110,7 @@ describe("Mod Detail View (renderModDetail)", () => {
     assert.equal(tabSkills.getAttribute("aria-selected"), "false");
     assert.ok(
       container.querySelector("[data-markdown-root]") !== null,
-      "Readme markdown root should exist in Overview"
+      "Readme markdown root should exist in Overview",
     );
 
     // Click Skills
@@ -119,7 +119,7 @@ describe("Mod Detail View (renderModDetail)", () => {
     assert.equal(tabOverview.getAttribute("aria-selected"), "false");
   });
 
-  test("renders metadata footer with version and author", async () => {
+  it("renders metadata footer with version and author", async () => {
     const container = el("div");
     document.body.appendChild(container);
 
@@ -138,7 +138,7 @@ describe("Mod Detail View (renderModDetail)", () => {
     assert.equal(versionDd?.textContent, "1.0.0");
   });
 
-  test("renders toggle switch and folder button for installed mod", async () => {
+  it("renders toggle switch and folder button for installed mod", async () => {
     const container = el("div");
     document.body.appendChild(container);
 
@@ -158,7 +158,7 @@ describe("Mod Detail View (renderModDetail)", () => {
     assert.ok(openFolder !== null, "Open Folder button should be present");
   });
 
-  test("renders Add button for uninstalled mod", async () => {
+  it("renders Add button for uninstalled mod", async () => {
     const container = el("div");
     document.body.appendChild(container);
 
@@ -171,7 +171,7 @@ describe("Mod Detail View (renderModDetail)", () => {
     });
 
     const addBtn = Array.from(container.querySelectorAll("button")).find(
-      (b) => b.textContent?.trim() === "Add"
+      (b) => b.textContent?.trim() === "Add",
     );
     assert.ok(addBtn !== undefined, "Add button should be present for uninstalled mod");
   });

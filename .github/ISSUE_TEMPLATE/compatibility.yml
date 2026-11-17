@@ -1,7 +1,7 @@
 name: Antigravity version not supported
 description: The installer refuses your Antigravity version
 title: "[Compat]: Antigravity "
-labels: [compatibility]
+labels: [ compatibility ]
 body:
   - type: markdown
     attributes:

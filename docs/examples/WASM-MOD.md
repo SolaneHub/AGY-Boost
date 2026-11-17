@@ -78,7 +78,7 @@ async function initializeComputeMod() {
         class:
           "fixed top-3 right-3 bg-purple-900/80 text-purple-200 text-xs px-3 py-1.5 rounded-full border border-purple-500/30 font-mono z-50",
       },
-      [`Wasm Compute Output: score = ${score}`]
+      [`Wasm Compute Output: score = ${score}`],
     );
 
     document.body.appendChild(pill);

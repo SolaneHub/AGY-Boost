@@ -21,11 +21,12 @@ export function isMac(): boolean {
     const userAgentData = (navigator as Navigator & { userAgentData?: { platform?: string } })
       .userAgentData;
     const platform = userAgentData?.platform || navigator.platform || "";
-    if (/mac/i.test(platform) || /mac/i.test(ua)) return true;
-    if (/linux|win/i.test(platform) || /linux|windows/i.test(ua)) return false;
+    if (/mac/iu.test(platform) || /mac/iu.test(ua)) return true;
+    if (/linux|win/iu.test(platform) || /linux|windows/iu.test(ua)) return false;
   }
-  if (typeof process !== "undefined" && process.platform) {
-    return process.platform === "darwin";
+  const globalProc = (globalThis as { process?: { platform?: string } }).process;
+  if (typeof globalProc !== "undefined" && globalProc.platform) {
+    return globalProc.platform === "darwin";
   }
   return false;
 }
@@ -158,7 +159,7 @@ export function matchesKeyboardEvent(e: KeyboardEvent, shortcut: ParsedShortcut)
 export function registerShortcut(combo: string, handler: (e: KeyboardEvent) => void): () => void {
   const parsed = parseCombo(combo, isMac());
   const target: EventTarget | null =
-    typeof window !== "undefined" ? window : typeof document !== "undefined" ? document : null;
+    typeof window === "undefined" ? (typeof document === "undefined" ? null : document) : window;
   if (!target || typeof target.addEventListener !== "function") {
     return () => {};
   }
@@ -216,7 +217,7 @@ export function mountHeader(element: HTMLElement): () => void {
     // 1. Toolbar inside main content header (Priority 1)
     const toolbar =
       document.querySelector<HTMLElement>(
-        '[data-main-content-header="true"] [data-testid="pane-titlebar-toolbar"]'
+        '[data-main-content-header="true"] [data-testid="pane-titlebar-toolbar"]',
       ) || document.querySelector<HTMLElement>('[data-testid="pane-titlebar-toolbar"]');
     if (toolbar) {
       return { target: toolbar, method: "prepend", priority: 1 };
@@ -286,10 +287,13 @@ export function mountHeader(element: HTMLElement): () => void {
     }
 
     // If moved away from a temporary dock, clean up old dock if now empty
-    if (prevParent && prevParent.id === "agy-header-dock" && prevParent !== best.target) {
-      if (!prevParent.childNodes || prevParent.childNodes.length === 0) {
-        prevParent.remove();
-      }
+    if (
+      prevParent &&
+      prevParent.id === "agy-header-dock" &&
+      prevParent !== best.target &&
+      (!prevParent.childNodes || prevParent.childNodes.length === 0)
+    ) {
+      prevParent.remove();
     }
   };
 
@@ -351,7 +355,7 @@ export function mountComposer(element: HTMLElement): () => void {
   const getBestTarget = (): ComposerMountTarget | null => {
     // 1. Next to model-selector-trigger container (Priority 1)
     const modelTrigger = document.querySelector<HTMLElement>(
-      '[data-testid="model-selector-trigger"]'
+      '[data-testid="model-selector-trigger"]',
     );
     if (modelTrigger) {
       const parentContainer =
@@ -364,7 +368,7 @@ export function mountComposer(element: HTMLElement): () => void {
 
     // 2. Next to permissions-selector-trigger container (Priority 2)
     const permTrigger = document.querySelector<HTMLElement>(
-      '[data-testid="permissions-selector-trigger"]'
+      '[data-testid="permissions-selector-trigger"]',
     );
     if (permTrigger?.parentElement) {
       return { target: permTrigger.parentElement, method: "append" };
@@ -381,7 +385,7 @@ export function mountComposer(element: HTMLElement): () => void {
 
     // 4. Conversation view bottom composer wrapper (Priority 4)
     const convView = document.querySelector<HTMLElement>('[data-testid="conversation-view"]');
-    if (convView && convView.lastElementChild) {
+    if (convView?.lastElementChild) {
       return { target: convView.lastElementChild as HTMLElement, method: "append" };
     }
 
@@ -477,7 +481,6 @@ export function mountFloatingHUD(element: HTMLElement, options?: HUDOptions): ()
         slotCss +=
           " bottom: 16px; left: 16px; flex-direction: column-reverse; align-items: flex-start;";
         break;
-      case "top-right":
       default:
         slotCss += " top: 16px; right: 16px; flex-direction: column; align-items: flex-end;";
         break;
@@ -518,14 +521,14 @@ export function observeConversation(callback: (node: HTMLElement) => void): () =
   const handleAddedNode = (node: Node) => {
     if (node.nodeType !== 1) return;
     const el = node as HTMLElement;
-    if (el.getAttribute && el.getAttribute("data-testid") === "composer") return;
+    if (el.getAttribute?.("data-testid") === "composer") return;
     if (
       el.id === "child-1-composer" ||
       el.id === "agy-hud-container" ||
       el.id === "agy-header-dock"
     )
       return;
-    if (el.closest && el.closest('[data-testid="composer"]')) return;
+    if (el.closest?.('[data-testid="composer"]')) return;
     try {
       callback(el);
     } catch {}
@@ -593,4 +596,72 @@ export function observeConversation(callback: (node: HTMLElement) => void): () =
     }
     activeConv = null;
   };
+}
+
+export interface LayoutDiagnostics {
+  readonly conversationViewPresent: boolean;
+  readonly inlineDisplay: string;
+  readonly computedFlex: string;
+  readonly child0Height: number;
+  readonly child1Height: number;
+  readonly isClean: boolean;
+}
+
+/**
+ * Returns an immutable snapshot of Antigravity conversation layout health.
+ * Evaluated on-demand with zero continuous reflow overhead.
+ */
+export function getLayoutDiagnostics(): Readonly<LayoutDiagnostics> {
+  const conv =
+    typeof document === "undefined"
+      ? null
+      : document.querySelector<HTMLElement>('[data-testid="conversation-view"]');
+
+  const conversationViewPresent = Boolean(conv);
+  const inlineDisplay = conv?.style?.display || "";
+
+  let computedFlex = "";
+  if (conv) {
+    if (typeof window !== "undefined" && typeof window.getComputedStyle === "function") {
+      try {
+        const cs = window.getComputedStyle(conv);
+        computedFlex = cs.getPropertyValue("display") || cs.display || "";
+      } catch {}
+    }
+    if (!computedFlex) {
+      if (conv.style?.display) {
+        computedFlex = conv.style.display;
+      } else if (
+        conv.classList &&
+        typeof conv.classList.contains === "function" &&
+        conv.classList.contains("flex")
+      ) {
+        computedFlex = "flex";
+      }
+    }
+  }
+
+  const child0 =
+    conv?.children && conv.children.length > 0 ? (conv.children[0] as HTMLElement) : null;
+  const child1 =
+    conv?.children && conv.children.length > 1 ? (conv.children[1] as HTMLElement) : null;
+
+  const child0Height = child0 ? Number(child0.clientHeight) || 0 : 0;
+  const child1Height = child1 ? Number(child1.clientHeight) || 0 : 0;
+
+  const isClean = Boolean(
+    conversationViewPresent &&
+      inlineDisplay !== "block" &&
+      computedFlex === "flex" &&
+      !(child0Height === 0 && child1Height > 0),
+  );
+
+  return Object.freeze({
+    conversationViewPresent,
+    inlineDisplay,
+    computedFlex,
+    child0Height,
+    child1Height,
+    isClean,
+  });
 }

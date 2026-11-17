@@ -1,7 +1,7 @@
 name: Bug report
 description: Something in AGY Boost does not work
 title: "[Bug]: "
-labels: [bug]
+labels: [ bug ]
 body:
   - type: markdown
     attributes:

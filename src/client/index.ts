@@ -14,6 +14,7 @@ import {
   mountFloatingHUD,
   registerShortcut,
   observeConversation,
+  getLayoutDiagnostics,
 } from "./ui/slots.js";
 
 const bridge = new DaemonBridge();
@@ -40,28 +41,32 @@ export const AGYBoost = {
     mountFloatingHUD,
     registerShortcut,
     observeConversation,
+    getLayoutDiagnostics,
   },
 };
 
-interface AGYGlobalWindow {
+interface AgyGlobalWindow {
   AGYBoost?: typeof AGYBoost;
   __AGY_BOOST_INITIALIZED__?: boolean;
   __AGY_DIAGNOSTICS__?: typeof diagnostics;
 }
 
-const globalObj = globalThis as unknown as AGYGlobalWindow;
+const globalObj = globalThis as unknown as AgyGlobalWindow;
 
 // Expose globally on window
 globalObj.AGYBoost = AGYBoost;
 globalObj.__AGY_DIAGNOSTICS__ = diagnostics;
 
 function initRuntime(): void {
-  const root = typeof document !== "undefined" ? document.documentElement : null;
-  if ((root && root.dataset.agyBoostLoaded === "true") || globalObj.__AGY_BOOST_INITIALIZED__) {
+  const root = typeof document === "undefined" ? null : document.documentElement;
+  if (
+    (root && root.dataset?.["agyBoostLoaded"] === "true") ||
+    globalObj.__AGY_BOOST_INITIALIZED__
+  ) {
     return;
   }
-  if (root) {
-    root.dataset.agyBoostLoaded = "true";
+  if (root?.dataset) {
+    root.dataset["agyBoostLoaded"] = "true";
   }
   globalObj.__AGY_BOOST_INITIALIZED__ = true;
 
@@ -153,8 +158,10 @@ function enforceConversationLayoutInvariant(): void {
 }
 
 // Initialize when DOM is ready
-if (document.readyState === "loading") {
-  document.addEventListener("DOMContentLoaded", initRuntime);
-} else {
-  initRuntime();
+if (typeof document !== "undefined") {
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", initRuntime);
+  } else {
+    initRuntime();
+  }
 }

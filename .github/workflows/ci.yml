@@ -2,7 +2,7 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches: [main]
+    branches: [ main ]
   pull_request:
 
 permissions:
@@ -37,8 +37,17 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      - name: Run fast check gate (typecheck, short Go unit tests, client tests)
-        run: pnpm run check:fast
+      - name: Check Formatting (Biome + gofmt)
+        run: pnpm run format:check
+
+      - name: Strict Typecheck (TypeScript NodeNext ESM + Go)
+        run: pnpm run typecheck
+
+      - name: Strict Linting (Biome Preset All + Go Vet)
+        run: pnpm run lint
+
+      - name: Fast Unit & Architecture Invariant Tests
+        run: pnpm run test:fast
 
   # Job 2 (Integration & Host Matrix): Full multi-platform matrix test suite
   integration-matrix:
@@ -47,7 +56,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-latest, ubuntu-latest, macos-latest]
+        os: [ windows-latest, ubuntu-latest, macos-latest ]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
@@ -74,20 +83,19 @@ jobs:
         with:
           chrome-version: stable
 
-      - name: Run all tests (unit + client + integration)
-        run: pnpm run test:all
-        env:
-          CHROME_BIN: ${{ steps.setup-chrome.outputs.chrome-path }}
+      - name: Strict Typecheck (${{ matrix.os }})
+        run: pnpm run typecheck
 
-      - name: Run E2E Flexbox & UI Invariant Tests
+      - name: Run Unit & Integration Tests (${{ matrix.os }})
+        run: go test -v ./src/... ./tests/... && pnpm run test:client
+
+      - name: Run E2E Flexbox & UI Invariant Tests (${{ matrix.os }})
         run: pnpm run test:e2e
         env:
           CHROME_BIN: ${{ steps.setup-chrome.outputs.chrome-path }}
 
-      - name: Verify full build & invariants
-        run: pnpm check
-        env:
-          CHROME_BIN: ${{ steps.setup-chrome.outputs.chrome-path }}
+      - name: Verify Clean Build & Binary Packaging (${{ matrix.os }})
+        run: pnpm run build
 
   # Job 3 (Cross-Platform Binaries Build): Builds distributables for Windows, Linux, and macOS
   build-cross-platform:

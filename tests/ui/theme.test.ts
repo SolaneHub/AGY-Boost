@@ -1,4 +1,4 @@
-import { test, describe, before, after } from "node:test";
+import { test as it, describe, before, after } from "node:test";
 import assert from "node:assert/strict";
 import { setupMockDOM } from "../harness/mock-dom.js";
 import { setTheme } from "../../src/client/ui/theme.js";
@@ -14,7 +14,7 @@ describe("Theme Engine (setTheme)", () => {
     teardown();
   });
 
-  test("sets CSS custom properties on document.documentElement", () => {
+  it("sets CSS custom properties on document.documentElement", () => {
     const root = document.documentElement;
     const cleanup = setTheme({
       "--primary-color": "#ff0000",
@@ -29,7 +29,7 @@ describe("Theme Engine (setTheme)", () => {
     cleanup();
   });
 
-  test("cleanup function removes newly added variables", () => {
+  it("cleanup function removes newly added variables", () => {
     const root = document.documentElement;
     const cleanup = setTheme({
       "--temp-var": "123px",
@@ -42,7 +42,7 @@ describe("Theme Engine (setTheme)", () => {
     assert.equal(root.style.getPropertyValue("--temp-var"), "");
   });
 
-  test("cleanup function restores previous values of existing variables", () => {
+  it("cleanup function restores previous values of existing variables", () => {
     const root = document.documentElement;
     root.style.setProperty("--existing-var", "original-value");
 

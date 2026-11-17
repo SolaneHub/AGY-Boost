@@ -1,7 +1,7 @@
 // AGY Boost Sidebar Button Injector (Willow Design System)
 
 import { openModsView, isModsViewOpen, closeModsView } from "./mods-view.js";
-import { DaemonBridge } from "../bridge/daemon.js";
+import type { DaemonBridge } from "../bridge/daemon.js";
 
 const BUTTON_ATTR = "data-agy-boost-mods-btn";
 let isSyncing = false;
@@ -11,7 +11,7 @@ export function setNavItemActive(item: HTMLElement): void {
     "bg-transparent",
     "text-secondary-foreground",
     "hover:bg-sidebar-muted",
-    "hover:text-foreground"
+    "hover:text-foreground",
   );
   item.classList.add("bg-sidebar-secondary", "text-foreground");
 }
@@ -22,7 +22,7 @@ export function setNavItemInactive(item: HTMLElement): void {
     "bg-transparent",
     "text-secondary-foreground",
     "hover:bg-sidebar-muted",
-    "hover:text-foreground"
+    "hover:text-foreground",
   );
 }
 
@@ -46,7 +46,7 @@ function getSidebarNavItems(): {
   const autoBtn = document.querySelector<HTMLElement>('[data-testid="automations-button"]');
   const newChatBtn = document.querySelector<HTMLElement>('[data-testid="new-conversation-button"]');
   const navContainer = document.querySelector<HTMLElement>(
-    '[data-testid="sidebar-navigation-items"]'
+    '[data-testid="sidebar-navigation-items"]',
   );
   const navChildren = navContainer ? (Array.from(navContainer.children) as HTMLElement[]) : [];
   const custBtn =
@@ -62,7 +62,7 @@ function getSidebarNavItems(): {
 
 export function updateSidebarActiveState(
   isActive: boolean,
-  targetElement?: HTMLElement | null
+  targetElement?: HTMLElement | null,
 ): void {
   if (isSyncing) return;
   isSyncing = true;
@@ -83,13 +83,13 @@ export function updateSidebarActiveState(
     // If an explicit target element was clicked (e.g. user clicked Customizations, Automations, or New Conversation)
     if (targetElement) {
       const isNewChat = Boolean(
-        newChatBtn && (newChatBtn === targetElement || newChatBtn.contains(targetElement))
+        newChatBtn && (newChatBtn === targetElement || newChatBtn.contains(targetElement)),
       );
       const isCust = Boolean(
-        custBtn && (custBtn === targetElement || custBtn.contains(targetElement))
+        custBtn && (custBtn === targetElement || custBtn.contains(targetElement)),
       );
       const isAuto = Boolean(
-        autoBtn && (autoBtn === targetElement || autoBtn.contains(targetElement))
+        autoBtn && (autoBtn === targetElement || autoBtn.contains(targetElement)),
       );
 
       if (isNewChat) {
@@ -122,7 +122,7 @@ export function updateSidebarActiveState(
 
     // No target element provided (e.g. toggled off or programmatic close):
     // Sync state based on the current window location pathname
-    const path = typeof window !== "undefined" ? window.location.pathname : "";
+    const path = typeof window === "undefined" ? "" : window.location.pathname;
     if (path === "/" || path === "") {
       if (newChatBtn) setNewChatActive(newChatBtn);
       if (custBtn) setNavItemInactive(custBtn);
@@ -165,7 +165,7 @@ export function mountSidebarButton(bridge: DaemonBridge): void {
     let targetNav = document.querySelector<HTMLElement>('[data-testid="sidebar-navigation-items"]');
     if (!targetNav) {
       const newConv = document.querySelector<HTMLElement>(
-        '[data-testid="new-conversation-button"]'
+        '[data-testid="new-conversation-button"]',
       );
       if (newConv?.parentElement) {
         targetNav = newConv.parentElement;
@@ -176,7 +176,7 @@ export function mountSidebarButton(bridge: DaemonBridge): void {
       const nav = document.querySelector('[role="navigation"]');
       if (nav) {
         const items = nav.querySelector<HTMLElement>(
-          '[data-testid="sidebar-navigation-items"], .flex.flex-col'
+          '[data-testid="sidebar-navigation-items"], .flex.flex-col',
         );
         if (items) targetNav = items;
       }
@@ -225,7 +225,7 @@ export function mountSidebarButton(bridge: DaemonBridge): void {
       const target = e.target as HTMLElement | null;
       if (!target) return;
       const sidebar = document.querySelector('[role="navigation"]');
-      if (sidebar && sidebar.contains(target) && !target.closest(`[${BUTTON_ATTR}]`)) {
+      if (sidebar?.contains(target) && !target.closest(`[${BUTTON_ATTR}]`)) {
         if (isModsViewOpen()) {
           closeModsView(target);
         } else {
@@ -233,7 +233,7 @@ export function mountSidebarButton(bridge: DaemonBridge): void {
         }
       }
     },
-    true
+    true,
   );
 
   // Sync state on popstate (browser back/forward navigation)
@@ -241,7 +241,7 @@ export function mountSidebarButton(bridge: DaemonBridge): void {
     updateSidebarActiveState(isModsViewOpen());
   });
 
-  interface AGYHistory extends History {
+  interface AgyHistory extends History {
     __agyBoostHooked?: boolean;
   }
 
@@ -249,17 +249,17 @@ export function mountSidebarButton(bridge: DaemonBridge): void {
   if (
     typeof window !== "undefined" &&
     window.history &&
-    !(window.history as AGYHistory).__agyBoostHooked
+    !(window.history as AgyHistory).__agyBoostHooked
   ) {
-    (window.history as AGYHistory).__agyBoostHooked = true;
+    (window.history as AgyHistory).__agyBoostHooked = true;
     const origPush = window.history.pushState.bind(window.history);
-    window.history.pushState = function (...args) {
+    window.history.pushState = (...args) => {
       const res = origPush(...args);
       updateSidebarActiveState(isModsViewOpen());
       return res;
     };
     const origReplace = window.history.replaceState.bind(window.history);
-    window.history.replaceState = function (...args) {
+    window.history.replaceState = (...args) => {
       const res = origReplace(...args);
       updateSidebarActiveState(isModsViewOpen());
       return res;
@@ -284,7 +284,7 @@ export function mountSidebarButton(bridge: DaemonBridge): void {
 
   const attachSidebarObserver = () => {
     const sidebarContainer = document.querySelector<HTMLElement>(
-      '[data-testid="sidebar-navigation-items"], [role="navigation"]'
+      '[data-testid="sidebar-navigation-items"], [role="navigation"]',
     );
 
     if (sidebarContainer) {

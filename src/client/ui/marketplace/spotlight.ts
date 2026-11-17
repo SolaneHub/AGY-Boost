@@ -1,7 +1,7 @@
 // AGY Boost Spotlight Carousel (Modularized & Lifecycle-Optimized)
 
 import { el } from "../dom.js";
-import { DaemonBridge } from "../../bridge/daemon.js";
+import type { DaemonBridge } from "../../bridge/daemon.js";
 import { getMarketplaceMod } from "./catalog.js";
 
 interface SpotlightMetadata {
@@ -108,7 +108,7 @@ export function startSpotlightTimer(updateFn: () => void): void {
   setupVisibilityListener();
 
   spotlightTimer = setInterval(() => {
-    if (!spotlightPaused && !document.hidden) {
+    if (!(spotlightPaused || document.hidden)) {
       activeFeaturedIndex = (activeFeaturedIndex + 1) % SPOTLIGHT_MODS_METADATA.length;
       updateFn();
     }
@@ -167,9 +167,9 @@ function createSpotlightRingSvg(): SVGSVGElement {
 }
 
 export function renderSpotlightHost(
-  bridge: DaemonBridge,
+  _bridge: DaemonBridge,
   onNavigateToInstalled: () => void,
-  onOpenDetail?: (modId: string) => void
+  onOpenDetail?: (modId: string) => void,
 ): HTMLElement {
   const host = el("section", {
     "aria-label": "Featured",
@@ -221,7 +221,7 @@ export function renderSpotlightHost(
       description: catalogItem?.description ?? "",
       iconBg: catalogItem?.iconBg ?? "",
       iconSvg: catalogItem?.iconSvg
-        ? catalogItem.iconSvg.replace(/width="24"\s+height="24"/, 'width="28" height="28"')
+        ? catalogItem.iconSvg.replace(/width="24"\s+height="24"/u, 'width="28" height="28"')
         : "",
     };
   });
@@ -245,8 +245,8 @@ export function renderSpotlightHost(
       style: `left: ${mod.left}; top: ${mod.top}; transform: translate(-50%, -50%) rotate(${mod.rotate}) scale(${isAct ? "1.12" : "1"}); cursor: pointer;`,
       onclick: () => {
         activeFeaturedIndex = idx;
-        updateSpotlightUI();
-        startSpotlightTimer(updateSpotlightUI);
+        updateSpotlightUi();
+        startSpotlightTimer(updateSpotlightUi);
       },
     });
 
@@ -288,7 +288,7 @@ export function renderSpotlightHost(
       "data-testid": "featured-carousel-eyebrow",
       class: "h-5 flex items-center min-w-0 mb-1.5",
     },
-    [el("span", { class: "text-sm font-medium text-muted-foreground truncate" }, ["Featured"])]
+    [el("span", { class: "text-sm font-medium text-muted-foreground truncate" }, ["Featured"])],
   );
   panel.appendChild(eyebrow);
 
@@ -319,7 +319,7 @@ export function renderSpotlightHost(
           }
         },
       },
-      [mod.name]
+      [mod.name],
     );
 
     const descP = el(
@@ -329,7 +329,7 @@ export function renderSpotlightHost(
         title: mod.description,
         "data-testid": isAct ? "featured-carousel-description" : undefined,
       },
-      [mod.description]
+      [mod.description],
     );
 
     const actionsDiv = el("div", {
@@ -370,7 +370,7 @@ export function renderSpotlightHost(
           }
         },
       },
-      ["Details"]
+      ["Details"],
     );
 
     actionsDiv.appendChild(addBtnSpan);
@@ -389,14 +389,14 @@ export function renderSpotlightHost(
   card.appendChild(panel);
   host.appendChild(card);
 
-  function updateSpotlightUI(): void {
+  function updateSpotlightUi(): void {
     spotlightItems.forEach((mod, idx) => {
       const isAct = idx === activeFeaturedIndex;
       const tileBtn = tileButtons[idx];
       const swayShell = swayShells[idx];
       const panelCard = panelCards[idx];
 
-      if (!tileBtn || !swayShell || !panelCard) return;
+      if (!(tileBtn && swayShell && panelCard)) return;
 
       tileBtn.setAttribute("aria-selected", isAct ? "true" : "false");
       tileBtn.setAttribute("tabindex", isAct ? "0" : "-1");
@@ -415,9 +415,7 @@ export function renderSpotlightHost(
       if (isAct) {
         if (existingRing) existingRing.remove();
         swayShell.appendChild(createSpotlightRingSvg());
-      } else {
-        if (existingRing) existingRing.remove();
-      }
+      } else if (existingRing) existingRing.remove();
 
       // Panel card transition
       panelCard.setAttribute("aria-hidden", isAct ? "false" : "true");
@@ -451,7 +449,7 @@ export function renderSpotlightHost(
       }
 
       const addBtn = panelCard.querySelector<HTMLButtonElement>(
-        '[data-testid="featured-carousel-primary-action"] button, .min-h-7 button'
+        '[data-testid="featured-carousel-primary-action"] button, .min-h-7 button',
       );
       if (addBtn) addBtn.setAttribute("tabindex", isAct ? "0" : "-1");
       const detailsBtn = panelCard.querySelector<HTMLButtonElement>(".mt-4 > button");
@@ -470,7 +468,7 @@ export function renderSpotlightHost(
   });
 
   // Start auto-advance timer
-  startSpotlightTimer(updateSpotlightUI);
+  startSpotlightTimer(updateSpotlightUi);
 
   return host;
 }

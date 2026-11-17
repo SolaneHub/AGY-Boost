@@ -1,8 +1,20 @@
+# Line endings
 * text=auto eol=lf
-*.png binary
-*.jpg binary
-*.ico binary
-*.webp binary
-*.exe binary
-*.woff2 binary
 
+# Text files
+*.go text eol=lf
+*.ts text eol=lf
+*.js text eol=lf
+*.mjs text eol=lf
+*.json text eol=lf
+*.md text eol=lf
+*.html text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.mod text eol=lf
+
+# Embedded bundled runtime (generated from src/client/ and embedded in Go CLI binary)
+src/cli/embedded/runtime.js text eol=lf linguist-generated=true
+
+# Binaries
+*.exe binary

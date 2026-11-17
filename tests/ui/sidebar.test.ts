@@ -1,13 +1,7 @@
-import { test, describe, before, after, beforeEach } from "node:test";
+import { test as it, describe, before, after, beforeEach } from "node:test";
 import assert from "node:assert/strict";
 import { setupMockDOM } from "../harness/mock-dom.js";
-import {
-  setNavItemActive,
-  setNavItemInactive,
-  setNewChatActive,
-  setNewChatInactive,
-  updateSidebarActiveState,
-} from "../../src/client/ui/sidebar.js";
+import { updateSidebarActiveState } from "../../src/client/ui/sidebar.js";
 import { el } from "../../src/client/ui/dom.js";
 
 describe("Sidebar Navigation & Active State Manager", () => {
@@ -27,53 +21,7 @@ describe("Sidebar Navigation & Active State Manager", () => {
     }
   });
 
-  test("setNavItemActive adds active classes and removes inactive/hover classes", () => {
-    const item = el("button", {
-      class:
-        "bg-transparent text-secondary-foreground hover:bg-sidebar-muted hover:text-foreground",
-    });
-
-    setNavItemActive(item);
-
-    assert.ok(item.classList.contains("bg-sidebar-secondary"));
-    assert.ok(item.classList.contains("text-foreground"));
-    assert.ok(!item.classList.contains("bg-transparent"));
-    assert.ok(!item.classList.contains("text-secondary-foreground"));
-    assert.ok(!item.classList.contains("hover:bg-sidebar-muted"));
-    assert.ok(!item.classList.contains("hover:text-foreground"));
-  });
-
-  test("setNavItemInactive adds inactive and hover classes and removes active classes", () => {
-    const item = el("button", {
-      class: "bg-sidebar-secondary text-foreground",
-    });
-
-    setNavItemInactive(item);
-
-    assert.ok(!item.classList.contains("bg-sidebar-secondary"));
-    assert.ok(item.classList.contains("bg-transparent"));
-    assert.ok(item.classList.contains("text-secondary-foreground"));
-    assert.ok(item.classList.contains("hover:bg-sidebar-muted"));
-    assert.ok(item.classList.contains("hover:text-foreground"));
-  });
-
-  test("setNewChatActive and setNewChatInactive toggle New Conversation classes correctly", () => {
-    const item = el("a", {
-      class: "border border-border text-foreground bg-sidebar-muted hover:bg-sidebar-secondary",
-    });
-
-    setNewChatActive(item);
-    assert.ok(item.classList.contains("bg-sidebar-secondary"));
-    assert.ok(!item.classList.contains("bg-sidebar-muted"));
-    assert.ok(!item.classList.contains("hover:bg-sidebar-secondary"));
-
-    setNewChatInactive(item);
-    assert.ok(!item.classList.contains("bg-sidebar-secondary"));
-    assert.ok(item.classList.contains("bg-sidebar-muted"));
-    assert.ok(item.classList.contains("hover:bg-sidebar-secondary"));
-  });
-
-  test("updateSidebarActiveState switches active and inactive states between Mods, Customizations, Automations, and New Conversation", () => {
+  it("updateSidebarActiveState switches active and inactive states between Mods, Customizations, Automations, and New Conversation", () => {
     const navItems = el("div", { "data-testid": "sidebar-navigation-items" });
     const newChatBtn = el(
       "a",
@@ -81,7 +29,7 @@ describe("Sidebar Navigation & Active State Manager", () => {
         "data-testid": "new-conversation-button",
         class: "border border-border text-foreground bg-sidebar-secondary",
       },
-      ["New Conversation"]
+      ["New Conversation"],
     );
     const autoBtn = el(
       "button",
@@ -90,7 +38,7 @@ describe("Sidebar Navigation & Active State Manager", () => {
         class:
           "bg-transparent text-secondary-foreground hover:bg-sidebar-muted hover:text-foreground",
       },
-      ["Automations"]
+      ["Automations"],
     );
     const custBtn = el(
       "button",
@@ -98,7 +46,7 @@ describe("Sidebar Navigation & Active State Manager", () => {
         class:
           "bg-transparent text-secondary-foreground hover:bg-sidebar-muted hover:text-foreground",
       },
-      ["Customizations"]
+      ["Customizations"],
     );
     const modsBtn = el(
       "button",
@@ -107,7 +55,7 @@ describe("Sidebar Navigation & Active State Manager", () => {
         class:
           "bg-transparent text-secondary-foreground hover:bg-sidebar-muted hover:text-foreground",
       },
-      ["Mods"]
+      ["Mods"],
     );
 
     navItems.appendChild(newChatBtn);

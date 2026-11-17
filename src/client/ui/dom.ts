@@ -7,7 +7,7 @@ export type DOMEventHandler = {
 export function el<K extends keyof HTMLElementTagNameMap>(
   tag: K,
   attrs: Record<string, string | number | boolean | undefined | null | DOMEventHandler> = {},
-  children: Array<Node | string | null | undefined> = []
+  children: Array<Node | string | null | undefined> = [],
 ): HTMLElementTagNameMap[K] {
   const element = document.createElement(tag);
 

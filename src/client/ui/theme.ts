@@ -1,6 +1,6 @@
 // AGY Boost Theming & Styling Engine
 
-import { DaemonBridge } from "../bridge/daemon.js";
+import type { DaemonBridge } from "../bridge/daemon.js";
 
 const appliedModStyles = new Map<string, () => void>();
 
@@ -9,7 +9,7 @@ export async function syncModStyles(bridge: DaemonBridge): Promise<void> {
   const currentActiveIds = new Set<string>();
 
   for (const mod of mods) {
-    if (!mod.enabled || !mod.style) continue;
+    if (!(mod.enabled && mod.style)) continue;
     currentActiveIds.add(mod.id);
 
     if (appliedModStyles.has(mod.id)) continue;

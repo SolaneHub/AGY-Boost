@@ -4,11 +4,12 @@ import { mkdtemp, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
+import process from "node:process";
 
 function findChromeExecutable() {
-  if (process.env.CHROME_BIN) {
-    if (fs.existsSync(process.env.CHROME_BIN)) {
-      return process.env.CHROME_BIN;
+  if (process.env["CHROME_BIN"]) {
+    if (fs.existsSync(process.env["CHROME_BIN"])) {
+      return process.env["CHROME_BIN"];
     }
     return null;
   }
@@ -20,7 +21,7 @@ function findChromeExecutable() {
     candidates.push(
       "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
       "/Applications/Chromium.app/Contents/MacOS/Chromium",
-      path.join(os.homedir(), "Applications/Google Chrome.app/Contents/MacOS/Google Chrome")
+      path.join(os.homedir(), "Applications/Google Chrome.app/Contents/MacOS/Google Chrome"),
     );
   } else if (platform === "linux") {
     candidates.push(
@@ -28,7 +29,7 @@ function findChromeExecutable() {
       "/usr/bin/google-chrome-stable",
       "/usr/bin/chromium",
       "/usr/bin/chromium-browser",
-      "/snap/bin/chromium"
+      "/snap/bin/chromium",
     );
   } else if (platform === "win32") {
     const programFiles = process.env["ProgramFiles"] || "C:\\Program Files";
@@ -37,7 +38,7 @@ function findChromeExecutable() {
     candidates.push(
       path.join(programFiles, "Google/Chrome/Application/chrome.exe"),
       path.join(programFilesX86, "Google/Chrome/Application/chrome.exe"),
-      path.join(localAppData, "Google/Chrome/Application/chrome.exe")
+      path.join(localAppData, "Google/Chrome/Application/chrome.exe"),
     );
   }
 
@@ -54,10 +55,17 @@ const CHROME_PATH = findChromeExecutable();
 const FIXTURE_PATH = path.resolve("tests/fixtures/mock-antigravity.html");
 const PORT = 9444;
 
+/** @param {number} ms */
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
-async function sendCDP(webSocketUrl, method, params = {}) {
+/**
+ * @param {string} webSocketUrl
+ * @param {string} method
+ * @param {Record<string, any>} [params]
+ */
+async function sendCdp(webSocketUrl, method, params = {}) {
   const socket = new WebSocket(webSocketUrl);
+  /** @type {NodeJS.Timeout | undefined} */
   let timer;
   try {
     await new Promise((resolve, reject) => {
@@ -67,18 +75,19 @@ async function sendCDP(webSocketUrl, method, params = {}) {
       });
     });
 
-    const id = Math.floor(Math.random() * 1000000);
+    const id = Math.floor(Math.random() * 1_000_000);
     const reply = new Promise((resolve, reject) => {
+      /** @param {any} event */
       const messageHandler = (event) => {
         try {
           const msg = JSON.parse(String(event.data));
           if (msg.id !== id) return;
-          clearTimeout(timer);
+          if (timer) clearTimeout(timer);
           socket.removeEventListener("message", messageHandler);
           if (msg.error) reject(new Error(msg.error.message));
           else resolve(msg.result);
         } catch (err) {
-          clearTimeout(timer);
+          if (timer) clearTimeout(timer);
           socket.removeEventListener("message", messageHandler);
           reject(err);
         }
@@ -88,7 +97,7 @@ async function sendCDP(webSocketUrl, method, params = {}) {
       timer = setTimeout(() => {
         socket.removeEventListener("message", messageHandler);
         reject(new Error(`CDP ${method} timed out`));
-      }, 10000);
+      }, 10_000);
     });
 
     socket.send(JSON.stringify({ id, method, params }));
@@ -101,8 +110,12 @@ async function sendCDP(webSocketUrl, method, params = {}) {
   }
 }
 
+/**
+ * @param {string} wsUrl
+ * @param {string} expression
+ */
 async function evalInPage(wsUrl, expression) {
-  const result = await sendCDP(wsUrl, "Runtime.evaluate", {
+  const result = await sendCdp(wsUrl, "Runtime.evaluate", {
     expression,
     returnByValue: true,
     awaitPromise: true,
@@ -137,19 +150,20 @@ async function main() {
       `--user-data-dir=${tmpDir}`,
       fixtureUrl,
     ],
-    { stdio: "ignore" }
+    { stdio: "ignore" },
   );
 
   let allPassed = false;
 
   try {
+    /** @type {any[] | null} */
     let targets = null;
     for (let i = 0; i < 40; i++) {
       try {
         const res = await fetch(`http://127.0.0.1:${PORT}/json/list`);
         if (res.ok) {
           targets = await res.json();
-          const page = targets.find((t) => t.type === "page");
+          const page = targets?.find((/** @type {any} */ t) => t.type === "page");
           if (page) break;
         }
       } catch {}
@@ -157,7 +171,7 @@ async function main() {
     }
 
     if (!targets) throw new Error("Could not connect to Chrome DevTools port");
-    const pageTarget = targets.find((t) => t.type === "page");
+    const pageTarget = targets.find((/** @type {any} */ t) => t.type === "page");
     if (!pageTarget) throw new Error("No page target found");
     const wsUrl = pageTarget.webSocketDebuggerUrl;
 
@@ -169,7 +183,7 @@ async function main() {
       try {
         ready = await evalInPage(
           wsUrl,
-          `Boolean(document.querySelector('[data-testid="conversation-view"]') && document.querySelector('[data-agy-boost-mods-btn="true"]'))`
+          `Boolean(document.querySelector('[data-testid="conversation-view"]') && document.querySelector('[data-agy-boost-mods-btn="true"]'))`,
         );
         if (ready) break;
       } catch {
@@ -179,9 +193,9 @@ async function main() {
     }
 
     if (!ready) {
-      if (process.env.CI) {
+      if (process.env["CI"]) {
         console.warn(
-          "Chrome fixture failed to become ready in CI environment; skipping E2E assertions gracefully."
+          "Chrome fixture failed to become ready in CI environment; skipping E2E assertions gracefully.",
         );
         allPassed = true;
         return;
@@ -189,12 +203,30 @@ async function main() {
       throw new Error("Fixture elements failed to mount within timeout");
     }
 
+    /**
+     * @typedef {Object} FlexboxTestReport
+     * @property {boolean} sidebarButtonMounted
+     * @property {any} initialFlexState
+     * @property {boolean} modsViewOpened
+     * @property {boolean} marketplaceRendered
+     * @property {boolean} modDetailRendered
+     * @property {boolean} installedTabRendered
+     * @property {any} sidebarNavLoop
+     * @property {boolean} modsViewClosed
+     * @property {any} finalFlexState
+     * @property {boolean} noInlineDisplayBlock
+     * @property {boolean} allPassed
+     */
+
+    /** @type {FlexboxTestReport} */
     const report = {
       sidebarButtonMounted: false,
       initialFlexState: null,
       modsViewOpened: false,
       marketplaceRendered: false,
+      modDetailRendered: false,
       installedTabRendered: false,
+      sidebarNavLoop: null,
       modsViewClosed: false,
       finalFlexState: null,
       noInlineDisplayBlock: true,
@@ -206,7 +238,7 @@ async function main() {
       wsUrl,
       `
       Boolean(document.querySelector('[data-agy-boost-mods-btn="true"]'))
-    `
+    `,
     );
     report.sidebarButtonMounted = Boolean(hasSidebarBtn);
 
@@ -225,7 +257,7 @@ async function main() {
         child0Height: child0.clientHeight,
         child1Height: child1.clientHeight,
       };
-    })()`
+    })()`,
     );
 
     // 2. Click "Mods" button to open view
@@ -233,7 +265,7 @@ async function main() {
       wsUrl,
       `
       document.querySelector('[data-agy-boost-mods-btn="true"]').click()
-    `
+    `,
     );
     await delay(500);
 
@@ -244,7 +276,7 @@ async function main() {
       const conv = document.querySelector('[data-testid="conversation-view"]');
       const convParent = conv ? conv.parentElement : null;
       return Boolean(view) && (conv.style.display === 'none' || (convParent && convParent.style.display === 'none'));
-    })()`
+    })()`,
     );
 
     // 3. Switch to / check Marketplace tab
@@ -258,7 +290,7 @@ async function main() {
           break;
         }
       }
-    })()`
+    })()`,
     );
     await delay(500);
 
@@ -268,7 +300,7 @@ async function main() {
       const spotlight = document.querySelector('[data-testid="featured-carousel"]') || document.querySelector('.agy-spotlight-host');
       const categoryCards = document.querySelectorAll('[data-testid="customization-card"]');
       return Boolean(spotlight) && categoryCards.length > 0;
-    })()`
+    })()`,
     );
 
     // 3b. Test 1:1 Mod Detail View Navigation from Marketplace
@@ -277,7 +309,7 @@ async function main() {
       `(() => {
       const card = document.querySelector('[data-card-name="Effort Optimizer"] a') || document.querySelector('[data-card-name="Effort Optimizer"]');
       if (card) card.click();
-    })()`
+    })()`,
     );
     await delay(500);
 
@@ -290,7 +322,7 @@ async function main() {
       const tabs = detail ? detail.querySelectorAll('[role="tab"]') : [];
       const footer = detail ? detail.querySelector('[data-testid="plugin-detail-footer"]') : null;
       return Boolean(detail) && Boolean(h1 && h1.textContent.includes('Effort Optimizer')) && prompts.length > 0 && tabs.length === 2 && Boolean(footer);
-    })()`
+    })()`,
     );
 
     // Click Back to return to Marketplace
@@ -299,7 +331,7 @@ async function main() {
       `(() => {
       const back = document.querySelector('[data-testid="plugin-detail-back-button"]');
       if (back) back.click();
-    })()`
+    })()`,
     );
     await delay(500);
 
@@ -314,7 +346,7 @@ async function main() {
           break;
         }
       }
-    })()`
+    })()`,
     );
     await delay(500);
 
@@ -326,7 +358,7 @@ async function main() {
       const hasInstalledHeader = headers.some(h => h.includes('Installed Mods'));
       const hasEnginesHeader = headers.some(h => h.includes('Engine') || h.includes('Installed Engines'));
       return hasInstalledHeader && hasEnginesHeader;
-    })()`
+    })()`,
     );
 
     // 5. Verify Navigation Active/Hover Loop including New Conversation
@@ -389,7 +421,7 @@ async function main() {
                     !newChat.classList.contains('bg-sidebar-secondary');
 
       return { step1, step2, step3, step4, step5, all: step1 && step2 && step3 && step4 && step5 };
-    })()`
+    })()`,
     );
 
     // 6. Close Mods View via clicking sidebar button again
@@ -397,7 +429,7 @@ async function main() {
       wsUrl,
       `
       document.querySelector('[data-agy-boost-mods-btn="true"]').click()
-    `
+    `,
     );
     await delay(500);
 
@@ -405,7 +437,7 @@ async function main() {
       wsUrl,
       `
       document.getElementById('agy-boost-mods-view') === null
-    `
+    `,
     );
     report.modsViewClosed = Boolean(isClosed);
 
@@ -424,13 +456,13 @@ async function main() {
         child0Height: child0.clientHeight,
         child1Height: child1.clientHeight,
       };
-    })()`
+    })()`,
     );
 
     report.noInlineDisplayBlock =
-      report.finalFlexState.inlineDisplay !== "block" && report.finalFlexState.display === "flex";
+      report.finalFlexState?.inlineDisplay !== "block" && report.finalFlexState?.display === "flex";
 
-    const flexGrowPreserved = report.finalFlexState.child0Height > 0;
+    const flexGrowPreserved = (report.finalFlexState?.child0Height ?? 0) > 0;
 
     report.allPassed =
       report.sidebarButtonMounted &&

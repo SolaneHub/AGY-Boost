@@ -1,4 +1,4 @@
-import { test, describe } from "node:test";
+import { test as it, describe } from "node:test";
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import fs from "node:fs";
@@ -6,18 +6,19 @@ import { mkdtemp, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import process from "node:process";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const rootDir = path.resolve(__dirname, "..", "..");
 const FIXTURE_PATH = path.join(rootDir, "tests", "fixtures", "mock-antigravity.html");
 
 function findChromeExecutable(): string | null {
-  if (process.env.CHROME_BIN && fs.existsSync(process.env.CHROME_BIN)) {
-    return process.env.CHROME_BIN;
+  if (process.env["CHROME_BIN"] && fs.existsSync(process.env["CHROME_BIN"])) {
+    return process.env["CHROME_BIN"];
   }
 
   // In CI environments, only run live browser if CHROME_BIN was explicitly set by the workflow job
-  if (process.env.CI) {
+  if (process.env["CI"]) {
     return null;
   }
 
@@ -28,7 +29,7 @@ function findChromeExecutable(): string | null {
     candidates.push(
       "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
       "/Applications/Chromium.app/Contents/MacOS/Chromium",
-      path.join(os.homedir(), "Applications/Google Chrome.app/Contents/MacOS/Google Chrome")
+      path.join(os.homedir(), "Applications/Google Chrome.app/Contents/MacOS/Google Chrome"),
     );
   } else if (platform === "linux") {
     candidates.push(
@@ -36,7 +37,7 @@ function findChromeExecutable(): string | null {
       "/usr/bin/google-chrome-stable",
       "/usr/bin/chromium",
       "/usr/bin/chromium-browser",
-      "/snap/bin/chromium"
+      "/snap/bin/chromium",
     );
   } else if (platform === "win32") {
     const programFiles = process.env["ProgramFiles"] || "C:\\Program Files";
@@ -45,7 +46,7 @@ function findChromeExecutable(): string | null {
     candidates.push(
       path.join(programFiles, "Google/Chrome/Application/chrome.exe"),
       path.join(programFilesX86, "Google/Chrome/Application/chrome.exe"),
-      path.join(localAppData, "Google/Chrome/Application/chrome.exe")
+      path.join(localAppData, "Google/Chrome/Application/chrome.exe"),
     );
   }
 
@@ -62,7 +63,7 @@ const CHROME_PATH = findChromeExecutable();
 const PORT = 9555;
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-async function sendCDP(webSocketUrl: string, method: string, params: Record<string, unknown> = {}) {
+async function sendCdp(webSocketUrl: string, method: string, params: Record<string, unknown> = {}) {
   const socket = new WebSocket(webSocketUrl);
   let timer: NodeJS.Timeout | undefined;
 
@@ -74,7 +75,7 @@ async function sendCDP(webSocketUrl: string, method: string, params: Record<stri
       });
     });
 
-    const id = Math.floor(Math.random() * 1000000);
+    const id = Math.floor(Math.random() * 1_000_000);
     const reply = new Promise((resolve, reject) => {
       const messageHandler = (event: MessageEvent) => {
         try {
@@ -95,7 +96,7 @@ async function sendCDP(webSocketUrl: string, method: string, params: Record<stri
       timer = setTimeout(() => {
         socket.removeEventListener("message", messageHandler);
         reject(new Error(`CDP ${method} timed out`));
-      }, 30000);
+      }, 30_000);
     });
 
     socket.send(JSON.stringify({ id, method, params }));
@@ -121,7 +122,7 @@ interface ContractAuditResult {
 }
 
 async function evalInPage<T>(wsUrl: string, expression: string): Promise<T> {
-  const result = (await sendCDP(wsUrl, "Runtime.evaluate", {
+  const result = (await sendCdp(wsUrl, "Runtime.evaluate", {
     expression,
     returnByValue: true,
     awaitPromise: true,
@@ -136,7 +137,7 @@ async function evalInPage<T>(wsUrl: string, expression: string): Promise<T> {
 }
 
 describe("DOM Contract Radar & Drift Detection (Headless Browser)", () => {
-  test("fixture file exists and contains contractual selectors", () => {
+  it("fixture file exists and contains contractual selectors", () => {
     assert.ok(fs.existsSync(FIXTURE_PATH), `Fixture must exist at ${FIXTURE_PATH}`);
     const html = fs.readFileSync(FIXTURE_PATH, "utf8");
 
@@ -151,16 +152,16 @@ describe("DOM Contract Radar & Drift Detection (Headless Browser)", () => {
 
     for (const selector of requiredContractSelectors) {
       assert.ok(
-        html.includes(selector.replace(/\[|\]/g, "")),
-        `DOM Contract Drift detected: fixture missing contractual attribute ${selector}`
+        html.includes(selector.replace(/\[|\]/gu, "")),
+        `DOM Contract Drift detected: fixture missing contractual attribute ${selector}`,
       );
     }
   });
 
-  test("DOM Contract verification in live Headless Chrome environment", async (t) => {
+  it("DOM Contract verification in live Headless Chrome environment", async (t) => {
     if (!CHROME_PATH) {
       t.skip(
-        "Chrome/Chromium executable not found in environment; skipping live headless browser test."
+        "Chrome/Chromium executable not found in environment; skipping live headless browser test.",
       );
       return;
     }
@@ -183,7 +184,7 @@ describe("DOM Contract Radar & Drift Detection (Headless Browser)", () => {
         `--user-data-dir=${tmpDir}`,
         fixtureUrl,
       ],
-      { stdio: "ignore" }
+      { stdio: "ignore" },
     );
 
     let wsUrl = "";
@@ -212,7 +213,7 @@ describe("DOM Contract Radar & Drift Detection (Headless Browser)", () => {
 
       if (!wsUrl) {
         t.skip(
-          "Failed to connect to Chrome CDP endpoint within timeout; skipping live browser test."
+          "Failed to connect to Chrome CDP endpoint within timeout; skipping live browser test.",
         );
         return;
       }
@@ -225,7 +226,7 @@ describe("DOM Contract Radar & Drift Detection (Headless Browser)", () => {
         try {
           const ready = await evalInPage(
             wsUrl,
-            `Boolean(document.readyState === "complete" && document.querySelector('[data-testid="conversation-view"]'))`
+            `Boolean(document.readyState === "complete" && document.querySelector('[data-testid="conversation-view"]'))`,
           );
           if (ready) {
             isReady = true;
@@ -239,7 +240,7 @@ describe("DOM Contract Radar & Drift Detection (Headless Browser)", () => {
 
       if (!isReady) {
         t.skip(
-          "Page failed to become ready in live headless Chrome within timeout; skipping live browser test."
+          "Page failed to become ready in live headless Chrome within timeout; skipping live browser test.",
         );
         return;
       }
@@ -290,11 +291,11 @@ describe("DOM Contract Radar & Drift Detection (Headless Browser)", () => {
             missing,
             flexboxContract,
           };
-        })()`
+        })()`,
         );
       } catch (err) {
         t.skip(
-          `CDP evaluation timed out or failed in runner environment: ${(err as Error).message}`
+          `CDP evaluation timed out or failed in runner environment: ${(err as Error).message}`,
         );
         return;
       }
@@ -303,33 +304,33 @@ describe("DOM Contract Radar & Drift Detection (Headless Browser)", () => {
       assert.deepEqual(
         contractAudit.missing,
         [],
-        `DOM Contract Drift detected: Missing required containers/triggers: ${JSON.stringify(contractAudit.missing)}`
+        `DOM Contract Drift detected: Missing required containers/triggers: ${JSON.stringify(contractAudit.missing)}`,
       );
 
       // Check flexbox contract
       assert.ok(
         contractAudit.flexboxContract,
-        "DOM Contract Drift: conversation-view missing flexbox children"
+        "DOM Contract Drift: conversation-view missing flexbox children",
       );
       assert.equal(
         contractAudit.flexboxContract.parentDisplay,
         "flex",
-        "DOM Contract Drift: conversation-view must have display: flex"
+        "DOM Contract Drift: conversation-view must have display: flex",
       );
       assert.equal(
         contractAudit.flexboxContract.parentFlexDirection,
         "column",
-        "DOM Contract Drift: conversation-view must have flex-direction: column"
+        "DOM Contract Drift: conversation-view must have flex-direction: column",
       );
       assert.equal(
         contractAudit.flexboxContract.child0FlexGrow,
         "1",
-        "DOM Contract Drift: Child 0 (messages) must have flex-grow: 1"
+        "DOM Contract Drift: Child 0 (messages) must have flex-grow: 1",
       );
       assert.equal(
         contractAudit.flexboxContract.child1FlexShrink,
         "0",
-        "DOM Contract Drift: Child 1 (composer) must have flex-shrink: 0"
+        "DOM Contract Drift: Child 1 (composer) must have flex-shrink: 0",
       );
     } finally {
       try {

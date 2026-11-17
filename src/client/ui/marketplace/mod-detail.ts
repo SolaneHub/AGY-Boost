@@ -1,7 +1,7 @@
 // AGY Boost Mod Detail View (1:1 Customizations Parity)
 
 import { el, createSvgIcon } from "../dom.js";
-import { DaemonBridge } from "../../bridge/daemon.js";
+import type { DaemonBridge } from "../../bridge/daemon.js";
 import { getMarketplaceMod } from "./catalog.js";
 
 export interface ModDetailOptions {
@@ -58,15 +58,15 @@ function renderMarkdownBody(markdownText: string): HTMLElement {
       currentList = null;
       root.appendChild(
         el("h3", { class: "text-lg font-medium !mt-4 !mb-2 text-foreground" }, [
-          line.replace(/^###\s+/, ""),
-        ])
+          line.replace(/^###\s+/u, ""),
+        ]),
       );
     } else if (line.startsWith("## ")) {
       currentList = null;
       root.appendChild(
         el("h2", { class: "text-xl font-semibold !mt-6 !mb-2 text-foreground" }, [
-          line.replace(/^##\s+/, ""),
-        ])
+          line.replace(/^##\s+/u, ""),
+        ]),
       );
     } else if (line.startsWith("- ")) {
       if (!currentList) {
@@ -75,8 +75,8 @@ function renderMarkdownBody(markdownText: string): HTMLElement {
         });
         root.appendChild(currentList);
       }
-      const itemContent = line.replace(/^-\s+/, "");
-      const strongMatch = itemContent.match(/^\*\*(.*?)\*\*:\s*(.*)$/);
+      const itemContent = line.replace(/^-\s+/u, "");
+      const strongMatch = itemContent.match(/^\*\*(.*?)\*\*:\s*(.*)$/u);
 
       if (strongMatch) {
         const li = el("li", { class: "leading-relaxed" }, [
@@ -91,7 +91,7 @@ function renderMarkdownBody(markdownText: string): HTMLElement {
     } else {
       currentList = null;
       root.appendChild(
-        el("p", { class: "text-sm text-foreground/90 leading-relaxed my-1.5" }, [line])
+        el("p", { class: "text-sm text-foreground/90 leading-relaxed my-1.5" }, [line]),
       );
     }
   }
@@ -101,7 +101,7 @@ function renderMarkdownBody(markdownText: string): HTMLElement {
 
 export async function renderModDetail(
   container: HTMLElement,
-  options: ModDetailOptions
+  options: ModDetailOptions,
 ): Promise<void> {
   const { modId, bridge, onBack, onRefresh } = options;
 
@@ -145,7 +145,7 @@ export async function renderModDetail(
           class: "mt-4 px-3 py-1.5 rounded-lg bg-secondary text-foreground text-sm cursor-pointer",
           onclick: onBack,
         },
-        ["Back to Mods"]
+        ["Back to Mods"],
       ),
     ]);
     container.appendChild(errorView);
@@ -185,10 +185,10 @@ export async function renderModDetail(
     },
     [
       createSvgIcon(
-        `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 -960 960 960" fill="currentColor" class="pointer-events-none"><path d="M294.92-450L522.77-222.15L480-180L180-480L480-780l42.77,42.15L294.92-510H780v60H294.92Z"/></svg>`
+        `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 -960 960 960" fill="currentColor" class="pointer-events-none"><path d="M294.92-450L522.77-222.15L480-180L180-480L480-780l42.77,42.15L294.92-510H780v60H294.92Z"/></svg>`,
       ),
       "Back to Mods",
-    ]
+    ],
   );
   innerCol.appendChild(backBtn);
 
@@ -208,7 +208,7 @@ export async function renderModDetail(
     {
       class: "text-xl font-medium tracking-tight leading-tight text-foreground truncate min-w-0",
     },
-    [mod.name]
+    [mod.name],
   );
   titleCol.appendChild(titleH1);
 
@@ -241,7 +241,7 @@ export async function renderModDetail(
             isEnabled ? "translate-x-4" : "translate-x-0"
           }`,
         }),
-      ]
+      ],
     );
 
     const openFolderBtn = el(
@@ -259,9 +259,9 @@ export async function renderModDetail(
       },
       [
         createSvgIcon(
-          `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 -960 960 960" fill="currentColor"><path d="M160-160q-33 0-56.5-23.5T80-240v-480q0-33 23.5-56.5T160-800h240l80 80h320q33 0 56.5 23.5T880-640v400q0 33-23.5 56.5T800-160H160Zm0-80h640v-400H447l-80-80H160v480Zm0 0v-480 480Z"/></svg>`
+          `<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 -960 960 960" fill="currentColor"><path d="M160-160q-33 0-56.5-23.5T80-240v-480q0-33 23.5-56.5T160-800h240l80 80h320q33 0 56.5 23.5T880-640v400q0 33-23.5 56.5T800-160H160Zm0-80h640v-400H447l-80-80H160v480Zm0 0v-480 480Z"/></svg>`,
         ),
-      ]
+      ],
     );
 
     actionsBox.appendChild(toggleBtn);
@@ -278,7 +278,7 @@ export async function renderModDetail(
           onRefresh();
         },
       },
-      ["Add"]
+      ["Add"],
     );
     actionsBox.appendChild(addBtn);
   }
@@ -333,7 +333,7 @@ export async function renderModDetail(
       leftContent.appendChild(textSpan);
 
       const arrowSvg = createSvgIcon(
-        `<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 -960 960 960" fill="currentColor" class="shrink-0 text-muted-foreground opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100 transition-opacity"><path d="M665.08-450H180v-60H665.08L437.23-737.85L480-780L780-480L480-180l-42.77-42.15L665.08-450Z"/></svg>`
+        `<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 -960 960 960" fill="currentColor" class="shrink-0 text-muted-foreground opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100 transition-opacity"><path d="M665.08-450H180v-60H665.08L437.23-737.85L480-780L780-480L480-180l-42.77-42.15L665.08-450Z"/></svg>`,
       );
 
       promptRow.appendChild(leftContent);
@@ -365,7 +365,7 @@ export async function renderModDetail(
         "agy-pill inline-flex items-center gap-1.5 cursor-pointer h-7 px-3 rounded-lg transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-primary select-none bg-secondary text-foreground",
       onclick: () => switchTab("overview"),
     },
-    ["Overview"]
+    ["Overview"],
   );
 
   const tabSkills = el(
@@ -380,7 +380,7 @@ export async function renderModDetail(
         "agy-pill inline-flex items-center gap-1.5 cursor-pointer h-7 px-3 rounded-lg transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-primary select-none text-muted-foreground hover:text-foreground",
       onclick: () => switchTab("skills"),
     },
-    ["Skills"]
+    ["Skills"],
   );
 
   tabList.appendChild(tabOverview);
@@ -409,13 +409,13 @@ export async function renderModDetail(
         class:
           "inline-flex items-center text-[11px] leading-4 px-2 py-0.5 rounded-full shrink-0 font-normal bg-muted text-muted-foreground",
       },
-      [String(commands.length)]
+      [String(commands.length)],
     );
 
     const chevronSvg = createSvgIcon(
       `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 -960 960 960" fill="currentColor" class="w-4 h-4 shrink-0 text-muted-foreground transition-transform ${
         commandsCollapsed ? "" : "rotate-90"
-      }"><path d="M517.85-480l-184-184L376-706.15L602.15-480L376-253.85L333.85-296l184-184Z"/></svg>`
+      }"><path d="M517.85-480l-184-184L376-706.15L602.15-480L376-253.85L333.85-296l184-184Z"/></svg>`,
     );
 
     const toggleBtn = el(
@@ -429,7 +429,7 @@ export async function renderModDetail(
           switchTab(activeDetailTab);
         },
       },
-      ["Commands", countBadge, chevronSvg]
+      ["Commands", countBadge, chevronSvg],
     );
 
     const header = el("div", { class: "flex items-center justify-between gap-4 pl-3" }, [
@@ -462,7 +462,7 @@ export async function renderModDetail(
               cmd.description,
             ]),
           ]),
-        ]
+        ],
       );
 
       // Copy Action Floating Button on Hover
@@ -489,9 +489,9 @@ export async function renderModDetail(
         },
         [
           createSvgIcon(
-            `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 -960 960 960" fill="currentColor" class="w-4 h-4"><path d="M362.31-260Q332-260 311-281t-21-51.31V-787.69Q290-818 311-839t51.31-21H697.69Q728-860 749-839t21,51.31v455.38Q770-302 749-281t-51.31,21H362.31Zm0-60H697.69q4.62,0 8.46-3.85t3.85-8.46V-787.69q0-4.62-3.85-8.46T697.69-800H362.31q-4.62,0-8.46,3.85T350-787.69v455.38q0,4.62 3.85,8.46t8.46,3.85Zm-140,200Q192-120 171-141t-21-51.31V-677.69q0-12.77 8.62-21.38T180-707.69t21.38,8.62T210-677.69v485.38q0,4.62 3.85,8.46t8.46,3.85H587.69q12.77,0 21.38,8.62T617.69-150t-8.62,21.38T587.69-120H222.31ZM350-320q0,0 0-3.85t0-8.46V-787.69q0-4.62 0-8.46t0-3.85t0,3.85t0,8.46v455.38q0,4.62 0,8.46t0,3.85Z"/></svg>`
+            `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 -960 960 960" fill="currentColor" class="w-4 h-4"><path d="M362.31-260Q332-260 311-281t-21-51.31V-787.69Q290-818 311-839t51.31-21H697.69Q728-860 749-839t21,51.31v455.38Q770-302 749-281t-51.31,21H362.31Zm0-60H697.69q4.62,0 8.46-3.85t3.85-8.46V-787.69q0-4.62-3.85-8.46T697.69-800H362.31q-4.62,0-8.46,3.85T350-787.69v455.38q0,4.62 3.85,8.46t8.46,3.85Zm-140,200Q192-120 171-141t-21-51.31V-677.69q0-12.77 8.62-21.38T180-707.69t21.38,8.62T210-677.69v485.38q0,4.62 3.85,8.46t8.46,3.85H587.69q12.77,0 21.38,8.62T617.69-150t-8.62,21.38T587.69-120H222.31ZM350-320q0,0 0-3.85t0-8.46V-787.69q0-4.62 0-8.46t0-3.85t0,3.85t0,8.46v455.38q0,4.62 0,8.46t0,3.85Z"/></svg>`,
           ),
-        ]
+        ],
       );
 
       copyBox.appendChild(copyBtn);
@@ -521,7 +521,7 @@ export async function renderModDetail(
       // Readme section
       const readmeSec = el("section", { "aria-label": "Readme" });
       const markdownEl = renderMarkdownBody(
-        mod?.readme || `### Overview\n${mod?.description || ""}`
+        mod?.readme || `### Overview\n${mod?.description || ""}`,
       );
       readmeSec.appendChild(markdownEl);
       overviewCol.appendChild(readmeSec);
@@ -567,7 +567,7 @@ export async function renderModDetail(
           createMetaItem("Category", getCategoryLabel(mod.category)),
         ]),
       ]),
-    ]
+    ],
   );
 
   innerCol.appendChild(mainContent);

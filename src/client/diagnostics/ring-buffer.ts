@@ -21,14 +21,14 @@ export class DiagnosticRingBuffer {
     level: DiagnosticEntry["level"],
     source: string,
     message: string,
-    details?: Record<string, unknown>
+    details?: Record<string, unknown>,
   ): DiagnosticEntry {
     const entry: DiagnosticEntry = {
       timestamp: Date.now(),
       level,
       source,
       message,
-      ...(details !== undefined ? { details } : {}),
+      ...(details === undefined ? {} : { details }),
     };
 
     if (this.buffer.length >= this.capacity) {

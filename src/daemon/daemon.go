@@ -43,6 +43,16 @@ type DaemonServer struct {
 	procs          map[string]*exec.Cmd
 	stateMu        sync.RWMutex
 	disabled       map[string]bool
+
+	// In-memory mods cache
+	modsCacheMu   sync.RWMutex
+	cachedMods    []ModManifest
+	cacheValid    bool
+	modsWatcherMu sync.Mutex
+	lastDirMtime  time.Time
+
+	// In-memory diagnostic ring buffer
+	logRing *LogRingBuffer
 }
 
 func generateSecureToken() (string, error) {
@@ -104,8 +114,10 @@ func NewDaemonServerWithDir(port int, customUserDataDir string) (*DaemonServer, 
 		modsDir:   modsDir,
 		procs:     make(map[string]*exec.Cmd),
 		disabled:  make(map[string]bool),
+		logRing:   NewLogRingBuffer(LogBufferCapacity),
 	}
 	server.loadState()
+	server.Log("INFO", fmt.Sprintf("Daemon server initialized (modsDir: %s)", modsDir))
 	return server, nil
 }
 
@@ -147,6 +159,7 @@ func (s *DaemonServer) routes() http.Handler {
 	}
 
 	mux.HandleFunc("/health", cors(s.handleHealth))
+	mux.HandleFunc("/diagnostics", cors(auth(s.handleDiagnostics)))
 	mux.HandleFunc("/mods", cors(auth(s.handleMods)))
 	mux.HandleFunc("/mods/toggle", cors(auth(s.handleModToggle)))
 	mux.HandleFunc("/mods/open-folder", cors(auth(s.handleModOpenFolder)))
@@ -157,6 +170,11 @@ func (s *DaemonServer) routes() http.Handler {
 	return mux
 }
 
+// ServeHTTP implements http.Handler for DaemonServer, routing requests through routes().
+func (s *DaemonServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	s.routes().ServeHTTP(w, r)
+}
+
 // Routes returns the configured HTTP handler for the daemon server.
 func (s *DaemonServer) Routes() http.Handler {
 	return s.routes()
@@ -165,6 +183,7 @@ func (s *DaemonServer) Routes() http.Handler {
 func (s *DaemonServer) Start() error {
 	handler := s.routes()
 	addr := fmt.Sprintf("127.0.0.1:%d", s.Port)
+	s.Log("INFO", fmt.Sprintf("Listening on http://%s", addr))
 	fmt.Printf("[AGY Boost Daemon] Listening natively on http://%s (RAM <10MB)\n", addr)
 	return http.ListenAndServe(addr, handler)
 }
@@ -179,8 +198,110 @@ func (s *DaemonServer) handleHealth(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// DiagnosticsResponse represents the telemetry payload returned by GET /diagnostics.
+type DiagnosticsResponse struct {
+	Uptime           string     `json:"uptime"`
+	UptimeSeconds    float64    `json:"uptimeSeconds"`
+	ResidentMemoryKB uint64     `json:"residentMemoryKB"`
+	Goroutines       int        `json:"goroutines"`
+	ActiveGoroutines int        `json:"activeGoroutines"`
+	EnabledMods      int        `json:"enabledMods"`
+	EnabledModsCount int        `json:"enabledModsCount"`
+	Logs             []LogEntry `json:"logs"`
+}
+
+func (s *DaemonServer) handleDiagnostics(w http.ResponseWriter, r *http.Request) {
+	var mem runtime.MemStats
+	runtime.ReadMemStats(&mem)
+
+	residentBytes := mem.Alloc
+	if mem.HeapInuse > 0 && mem.HeapInuse < 10*1024*1024 {
+		residentBytes = mem.HeapInuse
+	}
+	residentMemoryKB := residentBytes / 1024
+
+	var logs []LogEntry
+	if s.logRing != nil {
+		logs = s.logRing.Entries()
+	} else {
+		logs = []LogEntry{}
+	}
+
+	uptimeDuration := time.Since(s.startTime)
+	numGoroutines := runtime.NumGoroutine()
+	enabledCount := s.countEnabledMods()
+
+	resp := DiagnosticsResponse{
+		Uptime:           uptimeDuration.String(),
+		UptimeSeconds:    uptimeDuration.Seconds(),
+		ResidentMemoryKB: residentMemoryKB,
+		Goroutines:       numGoroutines,
+		ActiveGoroutines: numGoroutines,
+		EnabledMods:      enabledCount,
+		EnabledModsCount: enabledCount,
+		Logs:             logs,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(resp)
+}
+
+func (s *DaemonServer) countEnabledMods() int {
+	s.checkFilesystemChanges()
+
+	s.modsCacheMu.RLock()
+	valid := s.cacheValid
+	s.modsCacheMu.RUnlock()
+
+	if !valid {
+		s.refreshModsCache()
+	}
+
+	s.modsCacheMu.RLock()
+	defer s.modsCacheMu.RUnlock()
+
+	count := 0
+	for _, m := range s.cachedMods {
+		if m.Enabled {
+			count++
+		}
+	}
+	return count
+}
+
+func (s *DaemonServer) Log(level string, message string) {
+	if s.logRing != nil {
+		s.logRing.Add(LogEntry{
+			Timestamp: time.Now().UTC(),
+			Level:     level,
+			Message:   message,
+		})
+	}
+}
+
+func (s *DaemonServer) LogRing() *LogRingBuffer {
+	return s.logRing
+}
+
 func (s *DaemonServer) handleMods(w http.ResponseWriter, r *http.Request) {
-	mods := s.scanMods()
+	s.checkFilesystemChanges()
+
+	s.modsCacheMu.RLock()
+	if s.cacheValid {
+		mods := s.cachedMods
+		s.modsCacheMu.RUnlock()
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(mods)
+		return
+	}
+	s.modsCacheMu.RUnlock()
+
+	s.refreshModsCache()
+
+	s.modsCacheMu.RLock()
+	mods := s.cachedMods
+	s.modsCacheMu.RUnlock()
+
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(mods)
 }
@@ -211,6 +332,22 @@ func (s *DaemonServer) handleModToggle(w http.ResponseWriter, r *http.Request) {
 	}
 	s.stateMu.Unlock()
 	s.saveState()
+
+	// Invalidate cache or update in-memory entry directly
+	s.modsCacheMu.Lock()
+	if s.cacheValid {
+		for i := range s.cachedMods {
+			if s.cachedMods[i].ID == req.ID {
+				s.cachedMods[i].Enabled = req.Enabled
+				break
+			}
+		}
+	} else {
+		s.cacheValid = false
+	}
+	s.modsCacheMu.Unlock()
+
+	s.Log("INFO", fmt.Sprintf("Mod toggle: id=%s enabled=%v", req.ID, req.Enabled))
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]any{"ok": true, "id": req.ID, "enabled": req.Enabled})
@@ -333,11 +470,15 @@ func (s *DaemonServer) loadState() {
 	}
 	if err := json.Unmarshal(data, &state); err == nil {
 		s.stateMu.Lock()
-		defer s.stateMu.Unlock()
 		for _, id := range state.Disabled {
 			s.disabled[id] = true
 		}
+		s.stateMu.Unlock()
 	}
+
+	s.modsCacheMu.Lock()
+	s.cacheValid = false
+	s.modsCacheMu.Unlock()
 }
 
 func (s *DaemonServer) saveState() {
@@ -358,6 +499,53 @@ func (s *DaemonServer) saveState() {
 	if data, err := json.MarshalIndent(state, "", "  "); err == nil {
 		_ = os.WriteFile(stateFile, data, 0644)
 	}
+}
+
+func (s *DaemonServer) refreshModsCache() {
+	s.modsWatcherMu.Lock()
+	defer s.modsWatcherMu.Unlock()
+
+	// Double-check if another goroutine already refreshed it while we waited
+	s.modsCacheMu.RLock()
+	if s.cacheValid {
+		s.modsCacheMu.RUnlock()
+		return
+	}
+	s.modsCacheMu.RUnlock()
+
+	mods := s.scanMods()
+
+	s.modsCacheMu.Lock()
+	s.cachedMods = mods
+	s.cacheValid = true
+	if fi, err := os.Stat(s.modsDir); err == nil {
+		s.lastDirMtime = fi.ModTime()
+	}
+	s.modsCacheMu.Unlock()
+}
+
+func (s *DaemonServer) checkFilesystemChanges() {
+	fi, err := os.Stat(s.modsDir)
+	if err != nil {
+		return
+	}
+
+	s.modsCacheMu.RLock()
+	valid := s.cacheValid
+	lastMtime := s.lastDirMtime
+	s.modsCacheMu.RUnlock()
+
+	if valid && !fi.ModTime().Equal(lastMtime) {
+		s.modsCacheMu.Lock()
+		s.cacheValid = false
+		s.modsCacheMu.Unlock()
+	}
+}
+
+func (s *DaemonServer) InvalidateCache() {
+	s.modsCacheMu.Lock()
+	s.cacheValid = false
+	s.modsCacheMu.Unlock()
 }
 
 func (s *DaemonServer) scanMods() []ModManifest {
@@ -448,6 +636,7 @@ func (s *DaemonServer) handleDaemonSpawn(w http.ResponseWriter, r *http.Request)
 	}
 
 	s.procs[req.ModID] = cmd
+	s.Log("INFO", fmt.Sprintf("Spawned daemon for mod %s (pid: %d)", req.ModID, cmd.Process.Pid))
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]any{
@@ -477,6 +666,7 @@ func (s *DaemonServer) handleDaemonKill(w http.ResponseWriter, r *http.Request) 
 	if cmd, ok := s.procs[req.ModID]; ok && cmd != nil && cmd.Process != nil {
 		_ = cmd.Process.Kill()
 		delete(s.procs, req.ModID)
+		s.Log("INFO", fmt.Sprintf("Killed daemon for mod %s", req.ModID))
 	}
 
 	w.Header().Set("Content-Type", "application/json")

@@ -2,7 +2,7 @@
 
 export async function loadWasm<T extends WebAssembly.Exports = WebAssembly.Exports>(
   source: string | ArrayBuffer | Uint8Array,
-  importObject?: WebAssembly.Imports
+  importObject?: WebAssembly.Imports,
 ): Promise<WebAssembly.Instance & { exports: T }> {
   let bytes: BufferSource;
 

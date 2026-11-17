@@ -291,7 +291,7 @@ pnpm run test:integration
 Inspect and live-reload modifications in your running Antigravity:
 
 ```bash
-node scripts/dev-inspect.mjs eval "window.AGYBoost.version"
+node tests/tooling/dev-inspect.mjs eval "window.AGYBoost.version"
 ```
 
 ---

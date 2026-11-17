@@ -102,7 +102,7 @@ export interface ModWasm {
    */
   load<Exports extends WebAssembly.Exports = WebAssembly.Exports>(
     binaryOrUrl: string | ArrayBuffer | Uint8Array,
-    imports?: WebAssembly.Imports
+    imports?: WebAssembly.Imports,
   ): Promise<WebAssembly.Instance & { exports: Exports }>;
 }
 
@@ -144,7 +144,7 @@ export interface ModDaemon {
   spawnDaemon(
     modId: string,
     binaryPath: string,
-    args?: string[]
+    args?: string[],
   ): Promise<{ ok: boolean; pid?: number }>;
 
   /**
@@ -179,7 +179,7 @@ export interface ModUI {
   el<K extends keyof HTMLElementTagNameMap>(
     tag: K,
     attrs?: Record<string, string | number | boolean | undefined | null | DOMEventHandler>,
-    children?: Array<Node | string | null | undefined>
+    children?: Array<Node | string | null | undefined>,
   ): HTMLElementTagNameMap[K];
 
   /**
@@ -254,6 +254,20 @@ export interface ModUI {
    * Close the AGY Boost mods management panel.
    */
   closeModsView(): void;
+
+  /**
+   * Introspect Antigravity chat layout health and detect flexbox collapse.
+   */
+  getLayoutDiagnostics(): LayoutDiagnostics;
+}
+
+export interface LayoutDiagnostics {
+  readonly conversationViewPresent: boolean;
+  readonly inlineDisplay: string;
+  readonly computedFlex: string;
+  readonly child0Height: number;
+  readonly child1Height: number;
+  readonly isClean: boolean;
 }
 
 export interface DiagnosticEntry {
@@ -272,7 +286,7 @@ export interface ModDiagnostics {
     level: DiagnosticEntry["level"],
     source: string,
     message: string,
-    details?: Record<string, unknown>
+    details?: Record<string, unknown>,
   ): DiagnosticEntry;
 
   /**

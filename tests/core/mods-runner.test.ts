@@ -1,4 +1,4 @@
-import { test, describe, before, after, beforeEach, afterEach } from "node:test";
+import { test as it, describe, before, after, beforeEach, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
@@ -9,8 +9,9 @@ import {
   resetModScripts,
   isModScriptActive,
 } from "../../src/client/ui/mods-runner.js";
-import { DaemonBridge, ModInfo } from "../../src/client/bridge/daemon.js";
+import type { DaemonBridge, ModInfo } from "../../src/client/bridge/daemon.js";
 import { mountHeader, mountComposer } from "../../src/client/ui/slots.js";
+import process from "node:process";
 
 interface TestRunnerGlobals {
   AGYBoost?: {
@@ -29,26 +30,25 @@ interface TestRunnerGlobals {
 const testGlobals = globalThis as unknown as TestRunnerGlobals;
 
 describe("Mod Script Lifecycle Manager (mods-runner)", () => {
-  let teardownDOM: () => void;
+  let teardownDom: () => void;
   let mockMods: ModInfo[] = [];
   let mockFiles: Record<string, string> = {};
 
-  const createMockBridge = (): DaemonBridge => {
-    return {
+  const createMockBridge = (): DaemonBridge =>
+    ({
       getMods: async () => mockMods,
       getModFile: async (id: string, file: string) => {
         const key = `${id}:${file}`;
         return mockFiles[key] ?? null;
       },
-    } as unknown as DaemonBridge;
-  };
+    }) as unknown as DaemonBridge;
 
   before(() => {
-    teardownDOM = setupMockDOM();
+    teardownDom = setupMockDOM();
   });
 
   after(() => {
-    teardownDOM();
+    teardownDom();
   });
 
   beforeEach(() => {
@@ -72,7 +72,7 @@ describe("Mod Script Lifecycle Manager (mods-runner)", () => {
     delete testGlobals.AGYBoost;
   });
 
-  test("executes script and registers returned cleanup function", async () => {
+  it("executes script and registers returned cleanup function", async () => {
     let executed = false;
     let cleanedUp = false;
 
@@ -120,7 +120,7 @@ describe("Mod Script Lifecycle Manager (mods-runner)", () => {
     delete testGlobals.__testModClean;
   });
 
-  test("passes context with manifest, wasm, daemon, ui and registers onDispose", async () => {
+  it("passes context with manifest, wasm, daemon, ui and registers onDispose", async () => {
     interface CapturedContext {
       manifest: { id: string };
       wasm: { test: boolean };
@@ -172,7 +172,7 @@ describe("Mod Script Lifecycle Manager (mods-runner)", () => {
     delete testGlobals.__captureContext;
   });
 
-  test("handles module.exports and export default transformations", async () => {
+  it("handles module.exports and export default transformations", async () => {
     let defaultRun = false;
     let defaultClean = false;
 
@@ -217,7 +217,7 @@ describe("Mod Script Lifecycle Manager (mods-runner)", () => {
     delete testGlobals.__cleanDefault;
   });
 
-  test("does not re-execute already active scripts on subsequent syncs", async () => {
+  it("does not re-execute already active scripts on subsequent syncs", async () => {
     let executionCount = 0;
 
     mockMods = [
@@ -250,7 +250,7 @@ describe("Mod Script Lifecycle Manager (mods-runner)", () => {
     delete testGlobals.__inc;
   });
 
-  test("safely catches execution errors without throwing", async () => {
+  it("safely catches execution errors without throwing", async () => {
     mockMods = [
       {
         id: "buggy-mod",
@@ -273,13 +273,13 @@ describe("Mod Script Lifecycle Manager (mods-runner)", () => {
     assert.equal(isModScriptActive("buggy-mod"), false);
   });
 
-  test("runs real effort-optimizer mod: mounts interactive button, toggles levels, and cleans up", async () => {
+  it("runs real effort-optimizer mod: mounts interactive button, toggles levels, and cleans up", async () => {
     // Find mod file path
     const candidatePaths = [
       path.resolve(process.cwd(), "mods/effort-optimizer/index.js"),
       path.resolve(process.cwd(), "../../mods/effort-optimizer/index.js"),
       path.resolve(
-        "/Users/veronicalostimolo/Library/Application Support/AGYBoost/mods/effort-optimizer/index.js"
+        "/Users/veronicalostimolo/Library/Application Support/AGYBoost/mods/effort-optimizer/index.js",
       ),
     ];
     let realScript = "";
@@ -342,18 +342,18 @@ describe("Mod Script Lifecycle Manager (mods-runner)", () => {
 
     // Verify button is mounted in both chat composer and header
     const buttons = document.querySelectorAll(
-      '[data-agy-effort-optimizer="true"]'
+      '[data-agy-effort-optimizer="true"]',
     ) as NodeListOf<HTMLButtonElement>;
     assert.ok(buttons.length >= 1, "Effort optimizer button should be mounted in the UI");
 
     const composerPill = document.querySelector(
-      '[data-agy-effort-slot="composer"]'
+      '[data-agy-effort-slot="composer"]',
     ) as HTMLButtonElement | null;
     assert.ok(composerPill, "Composer pill must be mounted inside the chat UI");
     assert.equal(
       composerPill.parentElement,
       footerRow,
-      "Composer pill must be attached next to model-selector-trigger"
+      "Composer pill must be attached next to model-selector-trigger",
     );
     assert.ok(composerPill.textContent?.includes("High"), "Default effort level should be High");
 
@@ -361,14 +361,14 @@ describe("Mod Script Lifecycle Manager (mods-runner)", () => {
     composerPill.click();
     assert.ok(
       composerPill.textContent?.includes("Max"),
-      "Clicking button should toggle to Max (1.0)"
+      "Clicking button should toggle to Max (1.0)",
     );
 
     // Click again to cycle to Low
     composerPill.click();
     assert.ok(
       composerPill.textContent?.includes("Low"),
-      "Clicking again should toggle to Low (0.2)"
+      "Clicking again should toggle to Low (0.2)",
     );
 
     // Disable mod and sync again
@@ -380,7 +380,7 @@ describe("Mod Script Lifecycle Manager (mods-runner)", () => {
     assert.equal(
       buttonsAfter.length,
       0,
-      "All effort optimizer buttons should be cleanly unmounted when mod is disabled"
+      "All effort optimizer buttons should be cleanly unmounted when mod is disabled",
     );
 
     toolbar.remove();

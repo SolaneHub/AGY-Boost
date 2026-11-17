@@ -1,23 +1,31 @@
 {
   "compilerOptions": {
-    "target": "ES2022",
+    "target": "ES2023",
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
-    "lib": ["DOM", "DOM.Iterable", "ES2022"],
+    "lib": ["DOM", "DOM.Iterable", "ES2023"],
+    "allowJs": true,
+    "checkJs": true,
     "strict": true,
     "noUncheckedIndexedAccess": true,
     "exactOptionalPropertyTypes": true,
     "noImplicitOverride": true,
     "noImplicitReturns": true,
     "noFallthroughCasesInSwitch": true,
-    "forceConsistentCasingInFileNames": true,
-    "isolatedModules": true,
+    "noPropertyAccessFromIndexSignature": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
     "allowUnreachableCode": false,
     "allowUnusedLabels": false,
+    "verbatimModuleSyntax": true,
+    "isolatedModules": true,
+    "forceConsistentCasingInFileNames": true,
+    "useDefineForClassFields": true,
+    "esModuleInterop": true,
     "skipLibCheck": true,
     "types": ["node"],
     "noEmit": true
   },
-  "include": ["src/sdk/**/*.d.ts", "src/client/**/*.ts", "tests/**/*.ts"],
-  "exclude": ["**/node_modules", "**/dist", "src/cli/embedded"]
+  "include": ["src/sdk/**/*.d.ts", "src/client/**/*.ts", "tests/**/*.ts", "tests/**/*.mjs"],
+  "exclude": ["**/node_modules", "**/dist", "src/cli/embedded", "mods"]
 }

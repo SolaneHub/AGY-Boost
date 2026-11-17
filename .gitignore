@@ -1,10 +1,9 @@
 # Dependencies
 node_modules/
-.pnpm-store/
 
 # Build outputs & binaries
 dist/
-dist-native/
+src/client/dist/
 agy-boost
 *.exe
 
@@ -12,20 +11,10 @@ agy-boost
 coverage/
 *.test
 
-# Caches & logs
+# Logs
 *.log
-*.tsbuildinfo
-.eslintcache
-
-# Environment & local state
-.env
-.env.*
-storage.json
-trust.json
-scratch/
 
 # OS & Editor
 .DS_Store
-Thumbs.db
-.idea/
 .vscode/
+.idea/
