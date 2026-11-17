@@ -89,6 +89,9 @@ jobs:
       - name: Run Unit & Integration Tests (${{ matrix.os }})
         run: go test -v ./src/... ./tests/... && pnpm run test:client
 
+      - name: Run Stress Test & Memory Gating (<10MB RAM)
+        run: go test -v ./tests/stress/...
+
       - name: Run E2E Flexbox & UI Invariant Tests (${{ matrix.os }})
         run: pnpm run test:e2e
         env:

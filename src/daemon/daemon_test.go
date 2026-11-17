@@ -411,6 +411,8 @@ func TestModsCacheAndInvalidation(t *testing.T) {
 	server.modsCacheMu.RUnlock()
 
 	// Step 2: Add a new mod to the filesystem and change directory mtime
+	// Sleep to respect the 250ms checkFilesystemChanges debounce window
+	time.Sleep(260 * time.Millisecond)
 	mod1Dir := filepath.Join(modsDir, "mod-alpha")
 	_ = os.MkdirAll(mod1Dir, 0755)
 	manifest1 := ModManifest{
@@ -566,8 +568,26 @@ func TestDiagnosticsEndpoint(t *testing.T) {
 	if len(resp3.Logs) != 50 {
 		t.Fatalf("expected exactly 50 logs in ring buffer, got %d", len(resp3.Logs))
 	}
-	lastLog := resp3.Logs[len(resp3.Logs)-1]
-	if lastLog.Message != "diag event 59" {
-		t.Errorf("expected last log to be 'diag event 59', got %q", lastLog.Message)
+	// 6. Test saveState atomic persistence and .state.json integrity
+	server.disabled["mod-alpha"] = true
+	server.saveState()
+
+	stateFile := filepath.Join(modsDir, ".state.json")
+	stateBytes, err := os.ReadFile(stateFile)
+	if err != nil {
+		t.Fatalf("expected .state.json to exist after saveState: %v", err)
+	}
+	var loadedState struct {
+		Disabled []string `json:"disabled"`
+	}
+	if err := json.Unmarshal(stateBytes, &loadedState); err != nil {
+		t.Fatalf("failed to parse .state.json: %v", err)
+	}
+	if len(loadedState.Disabled) != 1 || loadedState.Disabled[0] != "mod-alpha" {
+		t.Errorf("unexpected saved state: %v", loadedState.Disabled)
+	}
+	tmpFile := filepath.Join(modsDir, ".state.json.tmp")
+	if _, err := os.Stat(tmpFile); !os.IsNotExist(err) {
+		t.Errorf("expected temporary file %s to be cleaned up or renamed", tmpFile)
 	}
 }

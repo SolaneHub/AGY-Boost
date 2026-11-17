@@ -244,6 +244,19 @@ func runTestSelective() {
 
 	start := time.Now()
 
+	nodeModulesExist := false
+	if fi, err := os.Stat("node_modules"); err == nil && fi.IsDir() {
+		nodeModulesExist = true
+	}
+
+	if (runClient || runInvariants) && !nodeModulesExist {
+		fmt.Println("⚠️  node_modules non trovato nella root del progetto.")
+		fmt.Println("   Esecuzione fallback sicuro su unit test Go ('go test -short ./src/...').")
+		executeCommand("go", "test", "-short", "./src/...")
+		fmt.Printf("✓ Fast-loop (fallback Go) completato con successo in %v\n", time.Since(start))
+		return
+	}
+
 	if runClient {
 		fmt.Println("⚡ Esecuzione rapida test client...")
 		executeCommand("pnpm", "--dir", "src/client", "run", "typecheck")

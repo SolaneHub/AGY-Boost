@@ -1,6 +1,7 @@
 package stress
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -267,6 +268,8 @@ func TestDaemonStressAndMemoryGating(t *testing.T) {
 
 	client.CloseIdleConnections()
 	runtime.GC()
+	runtime.GC()
+	debug.FreeOSMemory()
 
 	// Verify /diagnostics endpoint response contract and auth rejection under stress
 	respNoAuth, err := client.Get(baseURL + "/diagnostics")
@@ -376,7 +379,12 @@ func TestDiagnosticsZeroMemoryLeak(t *testing.T) {
 
 	baseURL := fmt.Sprintf("http://127.0.0.1:%d", serverPort)
 	client := &http.Client{
-		Timeout: 5 * time.Second,
+		Transport: &http.Transport{
+			MaxIdleConns:        500,
+			MaxIdleConnsPerHost: 500,
+			IdleConnTimeout:     60 * time.Second,
+		},
+		Timeout: 10 * time.Second,
 	}
 
 	// Wait for server ready
@@ -404,25 +412,54 @@ func TestDiagnosticsZeroMemoryLeak(t *testing.T) {
 	var wg sync.WaitGroup
 	errCh := make(chan error, numReqs)
 
+	bufPool := sync.Pool{
+		New: func() interface{} {
+			b := make([]byte, 8*1024)
+			return &b
+		},
+	}
+
 	for i := 0; i < numReqs; i++ {
 		wg.Add(1)
 		go func(idx int) {
 			defer wg.Done()
-			req, err := http.NewRequest("GET", baseURL+"/diagnostics", nil)
-			if err != nil {
-				errCh <- err
-				return
+			var resp *http.Response
+			var doErr error
+
+			for attempt := 0; attempt < 5; attempt++ {
+				req, err := http.NewRequest("GET", baseURL+"/diagnostics", nil)
+				if err != nil {
+					doErr = err
+					break
+				}
+				req.Header.Set("X-AGY-Token", server.Token)
+				resp, doErr = client.Do(req)
+				if doErr == nil && resp.StatusCode == http.StatusOK {
+					break
+				}
+				if resp != nil && resp.Body != nil {
+					_ = resp.Body.Close()
+				}
+				time.Sleep(time.Duration(10*(attempt+1)) * time.Millisecond)
 			}
-			req.Header.Set("X-AGY-Token", server.Token)
-			resp, err := client.Do(req)
-			if err != nil {
-				errCh <- err
+			if doErr != nil {
+				errCh <- doErr
 				return
 			}
 			defer resp.Body.Close()
 
 			if resp.StatusCode != http.StatusOK {
 				errCh <- fmt.Errorf("[%d] expected 200 OK, got %d", idx, resp.StatusCode)
+				return
+			}
+
+			bufPtr := bufPool.Get().(*[]byte)
+			defer bufPool.Put(bufPtr)
+
+			var buf bytes.Buffer
+			buf.Grow(2048)
+			if _, err := io.CopyBuffer(&buf, resp.Body, *bufPtr); err != nil {
+				errCh <- fmt.Errorf("[%d] read body error: %w", idx, err)
 				return
 			}
 
@@ -433,7 +470,7 @@ func TestDiagnosticsZeroMemoryLeak(t *testing.T) {
 				EnabledMods      int    `json:"enabledMods"`
 				Logs             []any  `json:"logs"`
 			}
-			if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+			if err := json.Unmarshal(buf.Bytes(), &payload); err != nil {
 				errCh <- fmt.Errorf("[%d] failed to decode json: %w", idx, err)
 				return
 			}

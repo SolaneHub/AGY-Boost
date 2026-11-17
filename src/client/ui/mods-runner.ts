@@ -18,13 +18,18 @@ export interface ModScriptContext {
 
 interface AgyGlobalContext {
   __AGY_ACTIVE_MOD_CLEANUPS__?: Map<string, CleanupFn[]>;
+  __AGY_DIAGNOSTICS__?: typeof diagnostics;
   AGYBoost?: {
     wasm?: unknown;
     ui?: unknown;
+    diagnostics?: typeof diagnostics;
   };
 }
 
 const globalObj = globalThis as unknown as AgyGlobalContext;
+if (!globalObj.__AGY_DIAGNOSTICS__) {
+  globalObj.__AGY_DIAGNOSTICS__ = diagnostics;
+}
 if (!globalObj.__AGY_ACTIVE_MOD_CLEANUPS__) {
   globalObj.__AGY_ACTIVE_MOD_CLEANUPS__ = new Map<string, CleanupFn[]>();
 }
@@ -39,7 +44,12 @@ export function unloadModScript(modId: string): void {
     for (const fn of cleanups) {
       try {
         fn();
-      } catch {}
+      } catch (err) {
+        diagnostics.record("ERROR", "mod-runner", `Failed to execute cleanup for mod ${modId}`, {
+          modId,
+          error: String(err),
+        });
+      }
     }
     activeModCleanups.delete(modId);
   }
@@ -52,7 +62,12 @@ export function unloadModScript(modId: string): void {
         item.setAttribute("data-agy-unmounted", "true");
         item.remove();
       }
-    } catch {}
+    } catch (err) {
+      diagnostics.record("WARN", "mod-runner", `Failed defensive DOM cleanup for mod ${modId}`, {
+        modId,
+        error: String(err),
+      });
+    }
   }
 }
 
@@ -80,7 +95,10 @@ export async function syncModScripts(bridge: DaemonBridge): Promise<void> {
   let mods: ModInfo[];
   try {
     mods = await bridge.getMods();
-  } catch {
+  } catch (err) {
+    diagnostics.record("ERROR", "mod-runner", "Failed to retrieve mods from daemon bridge", {
+      error: String(err),
+    });
     return;
   }
 
@@ -96,7 +114,17 @@ export async function syncModScripts(bridge: DaemonBridge): Promise<void> {
     let code: string | null;
     try {
       code = await bridge.getModFile(mod.id, mod.main);
-    } catch {
+    } catch (err) {
+      diagnostics.record(
+        "WARN",
+        "mod-runner",
+        `Failed to retrieve mod file ${mod.main} for mod ${mod.id}`,
+        {
+          modId: mod.id,
+          file: mod.main,
+          error: String(err),
+        },
+      );
       code = null;
     }
 
@@ -183,14 +211,33 @@ export async function syncModScripts(bridge: DaemonBridge): Promise<void> {
 
       activeModCleanups.set(mod.id, cleanups);
     } catch (err) {
-      diagnostics.record("ERROR", "mods-runner", "Mod execution failed", {
+      const errorDetails: Record<string, unknown> = {
         modId: mod.id,
         error: String(err),
-      });
+      };
+      if (err instanceof Error && err.stack) {
+        errorDetails["stack"] = err.stack;
+      }
+      diagnostics.record(
+        "ERROR",
+        "mod-runner",
+        `Mod execution failed for mod ${mod.id}`,
+        errorDetails,
+      );
       for (const fn of cleanups) {
         try {
           fn();
-        } catch {}
+        } catch (cleanupErr) {
+          diagnostics.record(
+            "ERROR",
+            "mod-runner",
+            `Failed to execute cleanup during error recovery for mod ${mod.id}`,
+            {
+              modId: mod.id,
+              error: String(cleanupErr),
+            },
+          );
+        }
       }
     }
   }

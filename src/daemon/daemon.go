@@ -50,6 +50,7 @@ type DaemonServer struct {
 	cacheValid    bool
 	modsWatcherMu sync.Mutex
 	lastDirMtime  time.Time
+	lastStatTime  time.Time
 
 	// In-memory diagnostic ring buffer
 	logRing *LogRingBuffer
@@ -215,9 +216,6 @@ func (s *DaemonServer) handleDiagnostics(w http.ResponseWriter, r *http.Request)
 	runtime.ReadMemStats(&mem)
 
 	residentBytes := mem.Alloc
-	if mem.HeapInuse > 0 && mem.HeapInuse < 10*1024*1024 {
-		residentBytes = mem.HeapInuse
-	}
 	residentMemoryKB := residentBytes / 1024
 
 	var logs []LogEntry
@@ -482,23 +480,47 @@ func (s *DaemonServer) loadState() {
 }
 
 func (s *DaemonServer) saveState() {
-	s.stateMu.RLock()
+	s.stateMu.Lock()
+	defer s.stateMu.Unlock()
+
 	var disabledList []string
 	for id := range s.disabled {
 		disabledList = append(disabledList, id)
 	}
-	s.stateMu.RUnlock()
 
 	stateFile := filepath.Join(s.modsDir, ".state.json")
+	tmpFile := filepath.Join(s.modsDir, ".state.json.tmp")
 	state := struct {
 		Disabled []string `json:"disabled"`
 	}{
 		Disabled: disabledList,
 	}
 
-	if data, err := json.MarshalIndent(state, "", "  "); err == nil {
-		_ = os.WriteFile(stateFile, data, 0644)
+	data, err := json.MarshalIndent(state, "", "  ")
+	if err != nil {
+		return
 	}
+
+	f, err := os.OpenFile(tmpFile, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
+	if err != nil {
+		return
+	}
+	if _, err := f.Write(data); err != nil {
+		_ = f.Close()
+		_ = os.Remove(tmpFile)
+		return
+	}
+	if err := f.Sync(); err != nil {
+		_ = f.Close()
+		_ = os.Remove(tmpFile)
+		return
+	}
+	if err := f.Close(); err != nil {
+		_ = os.Remove(tmpFile)
+		return
+	}
+
+	_ = os.Rename(tmpFile, stateFile)
 }
 
 func (s *DaemonServer) refreshModsCache() {
@@ -525,26 +547,32 @@ func (s *DaemonServer) refreshModsCache() {
 }
 
 func (s *DaemonServer) checkFilesystemChanges() {
+	now := time.Now()
+	s.modsCacheMu.RLock()
+	if s.cacheValid && now.Sub(s.lastStatTime) < 250*time.Millisecond {
+		s.modsCacheMu.RUnlock()
+		return
+	}
+	s.modsCacheMu.RUnlock()
+
 	fi, err := os.Stat(s.modsDir)
 	if err != nil {
 		return
 	}
 
-	s.modsCacheMu.RLock()
-	valid := s.cacheValid
-	lastMtime := s.lastDirMtime
-	s.modsCacheMu.RUnlock()
+	s.modsCacheMu.Lock()
+	defer s.modsCacheMu.Unlock()
+	s.lastStatTime = now
 
-	if valid && !fi.ModTime().Equal(lastMtime) {
-		s.modsCacheMu.Lock()
+	if s.cacheValid && !fi.ModTime().Equal(s.lastDirMtime) {
 		s.cacheValid = false
-		s.modsCacheMu.Unlock()
 	}
 }
 
 func (s *DaemonServer) InvalidateCache() {
 	s.modsCacheMu.Lock()
 	s.cacheValid = false
+	s.lastStatTime = time.Time{}
 	s.modsCacheMu.Unlock()
 }
 

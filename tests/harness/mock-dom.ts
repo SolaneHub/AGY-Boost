@@ -618,19 +618,6 @@ export class MockMutationObserver {
       }
     }
   }
-
-  static notifyMutation(record: MockMutationRecord): void {
-    for (const entry of [...MockMutationObserver.activeObservers]) {
-      if (
-        entry.target === record.target ||
-        (entry.options?.subtree && entry.target.contains(record.target))
-      ) {
-        try {
-          entry.observer.callback([record], entry.observer);
-        } catch {}
-      }
-    }
-  }
 }
 
 interface GlobalDomScope {

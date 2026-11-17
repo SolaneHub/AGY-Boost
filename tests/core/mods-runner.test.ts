@@ -9,6 +9,7 @@ import {
   resetModScripts,
   isModScriptActive,
 } from "../../src/client/ui/mods-runner.js";
+import { diagnostics } from "../../src/client/diagnostics/ring-buffer.js";
 import type { DaemonBridge, ModInfo } from "../../src/client/bridge/daemon.js";
 import { mountHeader, mountComposer } from "../../src/client/ui/slots.js";
 import process from "node:process";
@@ -52,6 +53,7 @@ describe("Mod Script Lifecycle Manager (mods-runner)", () => {
   });
 
   beforeEach(() => {
+    diagnostics.clear();
     resetModScripts();
     if (typeof document !== "undefined" && document.body) {
       while (document.body.childNodes.length > 0) {
@@ -69,6 +71,7 @@ describe("Mod Script Lifecycle Manager (mods-runner)", () => {
 
   afterEach(() => {
     resetModScripts();
+    diagnostics.clear();
     delete testGlobals.AGYBoost;
   });
 
@@ -271,6 +274,126 @@ describe("Mod Script Lifecycle Manager (mods-runner)", () => {
     // Should not throw
     await syncModScripts(bridge);
     assert.equal(isModScriptActive("buggy-mod"), false);
+
+    const entries = diagnostics.getEntries();
+    const errorEntry = entries.find(
+      (e) =>
+        e.level === "ERROR" && e.source === "mod-runner" && e.details?.["modId"] === "buggy-mod",
+    );
+    assert.ok(errorEntry, "should record ERROR in diagnostics for runtime throw");
+    assert.ok(
+      String(errorEntry.details?.["error"]).includes("Deliberate mod error"),
+      "should include error message in details",
+    );
+    assert.ok(errorEntry.details?.["stack"], "should capture stack trace");
+  });
+
+  it("catches syntax errors in mod script and records to diagnostics buffer", async () => {
+    mockMods = [
+      {
+        id: "syntax-error-mod",
+        name: "Syntax Error Mod",
+        version: "1.0.0",
+        description: "Syntax error in script",
+        enabled: true,
+        main: "syntax.js",
+        path: "/path/syntax",
+      },
+    ];
+
+    mockFiles["syntax-error-mod:syntax.js"] = `
+      const x = ; // Syntax error
+    `;
+
+    const bridge = createMockBridge();
+    await syncModScripts(bridge);
+    assert.equal(isModScriptActive("syntax-error-mod"), false);
+
+    const globalDiagnostics = (
+      globalThis as unknown as { __AGY_DIAGNOSTICS__?: typeof diagnostics }
+    ).__AGY_DIAGNOSTICS__;
+    assert.ok(globalDiagnostics, "window.__AGY_DIAGNOSTICS__ must be present");
+
+    const entries = globalDiagnostics.getEntries();
+    const syntaxErrEntry = entries.find(
+      (e) =>
+        e.level === "ERROR" &&
+        e.source === "mod-runner" &&
+        e.details?.["modId"] === "syntax-error-mod",
+    );
+    assert.ok(syntaxErrEntry, "syntax error must be captured in diagnostics ring buffer");
+    assert.ok(syntaxErrEntry.message.includes("syntax-error-mod"));
+  });
+
+  it("records error in diagnostics when mod cleanup callback throws", async () => {
+    mockMods = [
+      {
+        id: "cleanup-throw-mod",
+        name: "Cleanup Throw Mod",
+        version: "1.0.0",
+        description: "Cleanup throws",
+        enabled: true,
+        main: "cleanup.js",
+        path: "/path/cleanup",
+      },
+    ];
+
+    mockFiles["cleanup-throw-mod:cleanup.js"] = `
+      context.cleanup(() => {
+        throw new Error("Deliberate cleanup error");
+      });
+    `;
+
+    const bridge = createMockBridge();
+    await syncModScripts(bridge);
+    assert.equal(isModScriptActive("cleanup-throw-mod"), true);
+
+    unloadModScript("cleanup-throw-mod");
+    assert.equal(isModScriptActive("cleanup-throw-mod"), false);
+
+    const entries = diagnostics.getEntries();
+    const cleanupError = entries.find(
+      (e) =>
+        e.level === "ERROR" &&
+        e.source === "mod-runner" &&
+        e.details?.["modId"] === "cleanup-throw-mod",
+    );
+    assert.ok(cleanupError, "cleanup callback failure must be recorded in diagnostics");
+    assert.ok(String(cleanupError.details?.["error"]).includes("Deliberate cleanup error"));
+  });
+
+  it("records warning in diagnostics when bridge.getModFile fails", async () => {
+    mockMods = [
+      {
+        id: "missing-file-mod",
+        name: "Missing File Mod",
+        version: "1.0.0",
+        description: "File not found",
+        enabled: true,
+        main: "nonexistent.js",
+        path: "/path/missing",
+      },
+    ];
+
+    const bridge: DaemonBridge = {
+      getMods: async () => mockMods,
+      getModFile: async () => {
+        throw new Error("File read error from daemon");
+      },
+    } as unknown as DaemonBridge;
+
+    await syncModScripts(bridge);
+    assert.equal(isModScriptActive("missing-file-mod"), false);
+
+    const entries = diagnostics.getEntries();
+    const warnEntry = entries.find(
+      (e) =>
+        e.level === "WARN" &&
+        e.source === "mod-runner" &&
+        e.details?.["modId"] === "missing-file-mod",
+    );
+    assert.ok(warnEntry, "file retrieval failure must be recorded as WARN in diagnostics");
+    assert.equal(warnEntry.details?.["file"], "nonexistent.js");
   });
 
   it("runs real effort-optimizer mod: mounts interactive button, toggles levels, and cleans up", async () => {
