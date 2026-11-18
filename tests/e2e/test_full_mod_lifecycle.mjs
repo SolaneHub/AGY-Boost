@@ -1,4 +1,5 @@
 import http from "node:http";
+import net from "node:net";
 import { spawn } from "node:child_process";
 import fs from "node:fs";
 import { mkdtemp, rm } from "node:fs/promises";
@@ -55,12 +56,45 @@ function findChromeExecutable() {
 const CHROME_PATH = findChromeExecutable();
 const FIXTURE_PATH = path.resolve("tests/fixtures/mock-antigravity.html");
 const MOD_SCRIPT_PATH = path.resolve("mods/effort-optimizer/index.js");
-const HTTP_PORT = 9666;
-const CHROME_PORT = 9556;
 const AUTH_TOKEN = "test-token";
 
 /** @param {number} ms */
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * Resolves an available TCP port.
+ * @param {number} [preferredPort]
+ * @returns {Promise<number>}
+ */
+async function getAvailablePort(preferredPort = 0) {
+  if (preferredPort > 0) {
+    const isFree = await new Promise((resolve) => {
+      const server = net.createServer();
+      server.unref();
+      server.once("error", () => resolve(false));
+      server.once("listening", () => {
+        server.close(() => resolve(true));
+      });
+      server.listen(preferredPort, "127.0.0.1");
+    });
+    if (isFree) return preferredPort;
+  }
+
+  return new Promise((resolve, reject) => {
+    const server = net.createServer();
+    server.unref();
+    server.once("error", reject);
+    server.once("listening", () => {
+      const addr = server.address();
+      const port = typeof addr === "object" && addr ? addr.port : 9444;
+      server.close((err) => {
+        if (err) reject(err);
+        else resolve(port);
+      });
+    });
+    server.listen(0, "127.0.0.1");
+  });
+}
 
 /**
  * @param {string} webSocketUrl
@@ -238,9 +272,17 @@ async function main() {
   let tmpDir = null;
   let allPassed = false;
 
+  const preferredHttpPort = process.env["HTTP_PORT"] ? parseInt(process.env["HTTP_PORT"], 10) : 0;
+  const preferredChromePort = process.env["CHROME_PORT"]
+    ? parseInt(process.env["CHROME_PORT"], 10)
+    : 0;
+
+  const httpPort = await getAvailablePort(preferredHttpPort);
+  const chromePort = await getAvailablePort(preferredChromePort);
+
   try {
     // 1. Start mock HTTP daemon server
-    server = await startMockDaemonServer(HTTP_PORT);
+    server = await startMockDaemonServer(httpPort);
 
     // 2. Launch Headless Chrome
     tmpDir = await mkdtemp(path.join(os.tmpdir(), "agy-test-chrome-mod-lifecycle-"));
@@ -257,7 +299,7 @@ async function main() {
         "--no-first-run",
         "--no-default-browser-check",
         "--disable-background-networking",
-        `--remote-debugging-port=${CHROME_PORT}`,
+        `--remote-debugging-port=${chromePort}`,
         `--user-data-dir=${tmpDir}`,
         fixtureUrl,
       ],
@@ -268,7 +310,7 @@ async function main() {
     let targets = null;
     for (let i = 0; i < 40; i++) {
       try {
-        const res = await fetch(`http://127.0.0.1:${CHROME_PORT}/json/list`);
+        const res = await fetch(`http://127.0.0.1:${chromePort}/json/list`);
         if (res.ok) {
           targets = await res.json();
           const page = targets?.find((/** @type {any} */ t) => t.type === "page");
@@ -340,7 +382,7 @@ async function main() {
       wsUrl,
       `(() => {
         window.__AGY_TOKEN__ = "${AUTH_TOKEN}";
-        globalThis.AGYBoost.daemon.baseUrl = "http://127.0.0.1:${HTTP_PORT}";
+        globalThis.AGYBoost.daemon.baseUrl = "http://127.0.0.1:${httpPort}";
         return true;
       })()`,
     );

@@ -72,6 +72,14 @@ function initRuntime(): void {
 
   enforceConversationLayoutInvariant();
   mountSidebarButton(bridge);
+  diagnostics.record(
+    "INFO",
+    "runtime",
+    "AGY Boost runtime initialized and layout invariants enforced",
+    {
+      version: AGYBoost.version,
+    },
+  );
   syncModStyles(bridge).catch(() => {});
   syncModScripts(bridge).catch(() => {});
 }

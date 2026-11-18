@@ -1,0 +1,281 @@
+{
+  "version": "1.0.0",
+  "generated": "2026-11-18T08:40:53Z",
+  "types": {
+    "AuthTokenHeaders": {
+      "name": "AuthTokenHeaders",
+      "fields": {
+        "token": {
+          "name": "token",
+          "type": "string",
+          "optional": false
+        }
+      }
+    },
+    "DaemonKillPayload": {
+      "name": "DaemonKillPayload",
+      "fields": {
+        "modId": {
+          "name": "modId",
+          "type": "string",
+          "optional": false
+        }
+      }
+    },
+    "DaemonKillResponse": {
+      "name": "DaemonKillResponse",
+      "fields": {
+        "modId": {
+          "name": "modId",
+          "type": "string",
+          "optional": false
+        },
+        "ok": {
+          "name": "ok",
+          "type": "boolean",
+          "optional": false
+        }
+      }
+    },
+    "DaemonSpawnPayload": {
+      "name": "DaemonSpawnPayload",
+      "fields": {
+        "args": {
+          "name": "args",
+          "type": "string[]",
+          "optional": false
+        },
+        "binaryPath": {
+          "name": "binaryPath",
+          "type": "string",
+          "optional": false
+        },
+        "modId": {
+          "name": "modId",
+          "type": "string",
+          "optional": false
+        }
+      }
+    },
+    "DaemonSpawnResponse": {
+      "name": "DaemonSpawnResponse",
+      "fields": {
+        "modId": {
+          "name": "modId",
+          "type": "string",
+          "optional": false
+        },
+        "ok": {
+          "name": "ok",
+          "type": "boolean",
+          "optional": false
+        },
+        "pid": {
+          "name": "pid",
+          "type": "number",
+          "optional": false
+        }
+      }
+    },
+    "DiagnosticsResponse": {
+      "name": "DiagnosticsResponse",
+      "fields": {
+        "activeGoroutines": {
+          "name": "activeGoroutines",
+          "type": "number",
+          "optional": false
+        },
+        "enabledMods": {
+          "name": "enabledMods",
+          "type": "number",
+          "optional": false
+        },
+        "enabledModsCount": {
+          "name": "enabledModsCount",
+          "type": "number",
+          "optional": false
+        },
+        "goroutines": {
+          "name": "goroutines",
+          "type": "number",
+          "optional": false
+        },
+        "logs": {
+          "name": "logs",
+          "type": "LogEntry[]",
+          "optional": false
+        },
+        "residentMemoryKB": {
+          "name": "residentMemoryKB",
+          "type": "number",
+          "optional": false
+        },
+        "uptime": {
+          "name": "uptime",
+          "type": "string",
+          "optional": false
+        },
+        "uptimeSeconds": {
+          "name": "uptimeSeconds",
+          "type": "number",
+          "optional": false
+        }
+      }
+    },
+    "HealthResponse": {
+      "name": "HealthResponse",
+      "fields": {
+        "modsDir": {
+          "name": "modsDir",
+          "type": "string",
+          "optional": false
+        },
+        "status": {
+          "name": "status",
+          "type": "string",
+          "optional": false
+        },
+        "uptime": {
+          "name": "uptime",
+          "type": "string",
+          "optional": false
+        },
+        "version": {
+          "name": "version",
+          "type": "string",
+          "optional": false
+        }
+      }
+    },
+    "LogEntry": {
+      "name": "LogEntry",
+      "fields": {
+        "level": {
+          "name": "level",
+          "type": "string",
+          "optional": false
+        },
+        "message": {
+          "name": "message",
+          "type": "string",
+          "optional": false
+        },
+        "timestamp": {
+          "name": "timestamp",
+          "type": "string",
+          "optional": false
+        }
+      }
+    },
+    "ModManifest": {
+      "name": "ModManifest",
+      "fields": {
+        "author": {
+          "name": "author",
+          "type": "string",
+          "optional": true
+        },
+        "daemon": {
+          "name": "daemon",
+          "type": "string",
+          "optional": true
+        },
+        "description": {
+          "name": "description",
+          "type": "string",
+          "optional": false
+        },
+        "enabled": {
+          "name": "enabled",
+          "type": "boolean",
+          "optional": false
+        },
+        "id": {
+          "name": "id",
+          "type": "string",
+          "optional": false
+        },
+        "main": {
+          "name": "main",
+          "type": "string",
+          "optional": true
+        },
+        "name": {
+          "name": "name",
+          "type": "string",
+          "optional": false
+        },
+        "path": {
+          "name": "path",
+          "type": "string",
+          "optional": false
+        },
+        "style": {
+          "name": "style",
+          "type": "any",
+          "optional": true
+        },
+        "version": {
+          "name": "version",
+          "type": "string",
+          "optional": false
+        },
+        "wasm": {
+          "name": "wasm",
+          "type": "string",
+          "optional": true
+        }
+      }
+    },
+    "ModTogglePayload": {
+      "name": "ModTogglePayload",
+      "fields": {
+        "enabled": {
+          "name": "enabled",
+          "type": "boolean",
+          "optional": false
+        },
+        "id": {
+          "name": "id",
+          "type": "string",
+          "optional": false
+        }
+      }
+    },
+    "ModToggleResponse": {
+      "name": "ModToggleResponse",
+      "fields": {
+        "enabled": {
+          "name": "enabled",
+          "type": "boolean",
+          "optional": false
+        },
+        "id": {
+          "name": "id",
+          "type": "string",
+          "optional": false
+        },
+        "ok": {
+          "name": "ok",
+          "type": "boolean",
+          "optional": false
+        }
+      }
+    },
+    "OpenFolderResponse": {
+      "name": "OpenFolderResponse",
+      "fields": {
+        "ok": {
+          "name": "ok",
+          "type": "boolean",
+          "optional": false
+        },
+        "path": {
+          "name": "path",
+          "type": "string",
+          "optional": true
+        }
+      }
+    }
+  }
+}

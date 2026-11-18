@@ -126,38 +126,48 @@ func TestDaemonStressAndMemoryGating(t *testing.T) {
 		t.Fatalf("daemon server failed to spin up on %s", baseURL)
 	}
 
+	// Baseline goroutine count before running concurrent load
+	baselineGoroutines := runtime.NumGoroutine()
+
 	// Step 4: Genera un carico di 100 richieste concorrenti su:
 	// - GET /health
 	// - GET /mods (con token di autenticazione valido)
-	// - GET /mods/file?id=test-mod&file=heavy.wasm
+	// - GET /mods/file?id=test-mod&file=heavy.wasm (con Range header bytes=0-1048575)
 	const concurrencyCount = 100
 
 	type requestTarget struct {
-		endpoint    string
-		needsAuth   bool
-		expectedLen int64
+		endpoint       string
+		needsAuth      bool
+		rangeHeader    string
+		expectedLen    int64
+		expectedStatus int
 	}
 
 	targets := []requestTarget{
 		{
-			endpoint:    "/health",
-			needsAuth:   false,
-			expectedLen: 0,
+			endpoint:       "/health",
+			needsAuth:      false,
+			expectedLen:    0,
+			expectedStatus: http.StatusOK,
 		},
 		{
-			endpoint:    "/diagnostics",
-			needsAuth:   true,
-			expectedLen: 0,
+			endpoint:       "/diagnostics",
+			needsAuth:      true,
+			expectedLen:    0,
+			expectedStatus: http.StatusOK,
 		},
 		{
-			endpoint:    "/mods",
-			needsAuth:   true,
-			expectedLen: 0,
+			endpoint:       "/mods",
+			needsAuth:      true,
+			expectedLen:    0,
+			expectedStatus: http.StatusOK,
 		},
 		{
-			endpoint:    "/mods/file?id=test-mod&file=heavy.wasm",
-			needsAuth:   true,
-			expectedLen: heavyWasmSize,
+			endpoint:       "/mods/file?id=test-mod&file=heavy.wasm",
+			needsAuth:      true,
+			rangeHeader:    "bytes=0-1048575",
+			expectedLen:    1048576,
+			expectedStatus: http.StatusPartialContent,
 		},
 	}
 
@@ -207,8 +217,11 @@ func TestDaemonStressAndMemoryGating(t *testing.T) {
 					if tgt.needsAuth {
 						req.Header.Set("X-AGY-Token", server.Token)
 					}
+					if tgt.rangeHeader != "" {
+						req.Header.Set("Range", tgt.rangeHeader)
+					}
 					resp, doErr = client.Do(req)
-					if doErr == nil && resp.StatusCode == http.StatusOK {
+					if doErr == nil && resp.StatusCode == tgt.expectedStatus {
 						break
 					}
 					if resp != nil && resp.Body != nil {
@@ -223,8 +236,8 @@ func TestDaemonStressAndMemoryGating(t *testing.T) {
 				}
 				defer resp.Body.Close()
 
-				if resp.StatusCode != http.StatusOK {
-					errCh <- fmt.Errorf("target %s [%d]: unexpected status code: got %d, want 200", tgt.endpoint, reqIndex, resp.StatusCode)
+				if resp.StatusCode != tgt.expectedStatus {
+					errCh <- fmt.Errorf("target %s [%d]: unexpected status code: got %d, want %d", tgt.endpoint, reqIndex, resp.StatusCode, tgt.expectedStatus)
 					return
 				}
 
@@ -352,6 +365,25 @@ func TestDaemonStressAndMemoryGating(t *testing.T) {
 	if activeSysBytes >= maxSysBytes {
 		t.Fatalf("MEMORY GATING BREACH: active system memory exceeds threshold! Got: %.2f MB (%d bytes), Max allowed: 10.00 MB (%d bytes)",
 			float64(activeSysBytes)/(1024*1024), activeSysBytes, maxSysBytes)
+	}
+
+	// Step 6: NumGoroutine() deve rientrare al livello base entro 500ms dal termine del carico.
+	// We allow a grace period of up to 500ms for transient background network goroutines to drain.
+	deadline := time.Now().Add(500 * time.Millisecond)
+	goroutinesNormalized := false
+	var finalGoroutines int
+	for time.Now().Before(deadline) {
+		finalGoroutines = runtime.NumGoroutine()
+		// We allow a small tolerance (e.g. +3) for Go runtime internal workers (scavenger, GC helper)
+		if finalGoroutines <= baselineGoroutines+3 {
+			goroutinesNormalized = true
+			break
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	if !goroutinesNormalized {
+		t.Fatalf("GOROUTINE LEAK: NumGoroutine did not normalize within 500ms. Baseline: %d, Current: %d",
+			baselineGoroutines, finalGoroutines)
 	}
 }
 
@@ -511,5 +543,281 @@ func TestDiagnosticsZeroMemoryLeak(t *testing.T) {
 	}
 	if memStats.HeapInuse >= 10*1024*1024 {
 		t.Fatalf("Memory leak detected: HeapInuse %.2f MB exceeds 10MB threshold", float64(memStats.HeapInuse)/(1024*1024))
+	}
+}
+
+// TestConcurrentStreaming50RangeRequests tests 50 concurrent requests with Range header (bytes=0-1048575)
+// streaming a synthetic 10MB file generated in t.TempDir().
+// It verifies:
+// - Alloc < 8MB (8 * 1024 * 1024)
+// - NumGoroutine() normalizes to baseline within 500ms
+// - Diagnostics and Health respond with 0 regressions during streaming
+func TestConcurrentStreaming50RangeRequests(t *testing.T) {
+	tempUserData := t.TempDir()
+	serverPort := getFreePort(t)
+
+	server, err := daemon.NewDaemonServerWithDir(serverPort, tempUserData)
+	if err != nil {
+		t.Fatalf("failed to initialize daemon server: %v", err)
+	}
+
+	listener, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", serverPort))
+	if err != nil {
+		t.Fatalf("failed to listen on port %d: %v", serverPort, err)
+	}
+	defer listener.Close()
+
+	httpServer := &http.Server{Handler: server.Routes()}
+	defer httpServer.Close()
+
+	go func() {
+		_ = httpServer.Serve(listener)
+	}()
+
+	baseURL := fmt.Sprintf("http://127.0.0.1:%d", serverPort)
+	client := &http.Client{
+		Transport: &http.Transport{
+			MaxIdleConns:        500,
+			MaxIdleConnsPerHost: 500,
+			IdleConnTimeout:     60 * time.Second,
+		},
+		Timeout: 15 * time.Second,
+	}
+
+	// Wait for server ready
+	ready := false
+	for attempt := 0; attempt < 50; attempt++ {
+		resp, err := client.Get(baseURL + "/health")
+		if err == nil && resp.StatusCode == http.StatusOK {
+			_ = resp.Body.Close()
+			ready = true
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	if !ready {
+		t.Fatalf("daemon server failed to spin up")
+	}
+
+	// Generate a synthetic 10MB file in t.TempDir() inside the mod directory
+	modsDir := filepath.Join(tempUserData, "mods")
+	streamModDir := filepath.Join(modsDir, "stream-mod")
+	if err := os.MkdirAll(streamModDir, 0755); err != nil {
+		t.Fatalf("failed to create mod directory: %v", err)
+	}
+
+	manifestBytes, _ := json.Marshal(daemon.ModManifest{
+		ID:      "stream-mod",
+		Name:    "Stream 10MB Mod",
+		Version: "1.0.0",
+		Wasm:    "heavy-10mb.wasm",
+	})
+	if err := os.WriteFile(filepath.Join(streamModDir, "mod.json"), manifestBytes, 0644); err != nil {
+		t.Fatalf("failed to write mod.json: %v", err)
+	}
+
+	const tenMB = 10 * 1024 * 1024
+	file10MBPath := filepath.Join(streamModDir, "heavy-10mb.wasm")
+	f, err := os.OpenFile(file10MBPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
+	if err != nil {
+		t.Fatalf("failed to create 10MB synthetic file: %v", err)
+	}
+	// Write header + patterned chunks to reach 10MB without allocating 10MB buffer in test
+	chunk := make([]byte, 64*1024)
+	copy(chunk, []byte{0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00})
+	for i := 8; i < len(chunk); i++ {
+		chunk[i] = byte(i % 251)
+	}
+	for written := 0; written < tenMB; written += len(chunk) {
+		if _, err := f.Write(chunk); err != nil {
+			_ = f.Close()
+			t.Fatalf("failed writing chunk to 10MB synthetic file: %v", err)
+		}
+	}
+	_ = f.Close()
+
+	// Initial GC and record baseline goroutines
+	runtime.GC()
+	runtime.GC()
+	baselineGoroutines := runtime.NumGoroutine()
+
+	// We launch 50 concurrent requests with Range: bytes=0-1048575 (1MB slice of 10MB file)
+	// simultaneously with continuous concurrent checks against /health and /diagnostics.
+	const streamWorkers = 50
+	const expectedRangeLen = int64(1048576) // bytes=0-1048575 is 1048576 bytes
+
+	var wg sync.WaitGroup
+	errCh := make(chan error, streamWorkers+20)
+	startBarrier := make(chan struct{})
+
+	// Shared buffer pool for test streaming reads
+	bufPool := sync.Pool{
+		New: func() interface{} {
+			b := make([]byte, 32*1024)
+			return &b
+		},
+	}
+
+	// 50 concurrent range streaming workers
+	for i := 0; i < streamWorkers; i++ {
+		wg.Add(1)
+		go func(workerID int) {
+			defer wg.Done()
+			<-startBarrier
+
+			reqURL := fmt.Sprintf("%s/mods/file?id=stream-mod&file=heavy-10mb.wasm", baseURL)
+			var resp *http.Response
+			var doErr error
+
+			for attempt := 0; attempt < 5; attempt++ {
+				req, err := http.NewRequest("GET", reqURL, nil)
+				if err != nil {
+					doErr = err
+					break
+				}
+				req.Header.Set("X-AGY-Token", server.Token)
+				req.Header.Set("Range", "bytes=0-1048575")
+
+				resp, doErr = client.Do(req)
+				if doErr == nil && (resp.StatusCode == http.StatusPartialContent || resp.StatusCode == http.StatusOK) {
+					break
+				}
+				if resp != nil && resp.Body != nil {
+					_ = resp.Body.Close()
+				}
+				time.Sleep(time.Duration(10*(attempt+1)) * time.Millisecond)
+			}
+
+			if doErr != nil {
+				errCh <- fmt.Errorf("range worker %d error: %w", workerID, doErr)
+				return
+			}
+			defer resp.Body.Close()
+
+			if resp.StatusCode != http.StatusPartialContent {
+				errCh <- fmt.Errorf("range worker %d: expected 206 Partial Content, got %d", workerID, resp.StatusCode)
+				return
+			}
+
+			bufPtr := bufPool.Get().(*[]byte)
+			defer bufPool.Put(bufPtr)
+
+			n, err := io.CopyBuffer(io.Discard, resp.Body, *bufPtr)
+			if err != nil {
+				errCh <- fmt.Errorf("range worker %d: copy buffer error: %w", workerID, err)
+				return
+			}
+
+			if n != expectedRangeLen {
+				errCh <- fmt.Errorf("range worker %d: length mismatch: got %d, want %d", workerID, n, expectedRangeLen)
+				return
+			}
+		}(i)
+	}
+
+	// Interleaved concurrent health & diagnostics callers to verify no latency regression or locking starvation
+	for h := 0; h < 10; h++ {
+		wg.Add(1)
+		go func(id int) {
+			defer wg.Done()
+			<-startBarrier
+
+			startHealth := time.Now()
+			resp, err := client.Get(baseURL + "/health")
+			healthDuration := time.Since(startHealth)
+
+			if err != nil {
+				errCh <- fmt.Errorf("health concurrent caller %d error: %w", id, err)
+				return
+			}
+			_ = resp.Body.Close()
+			if resp.StatusCode != http.StatusOK {
+				errCh <- fmt.Errorf("health concurrent caller %d: status %d", id, resp.StatusCode)
+				return
+			}
+			if healthDuration > 500*time.Millisecond {
+				errCh <- fmt.Errorf("health concurrent caller %d regression: took %v (>500ms)", id, healthDuration)
+				return
+			}
+
+			startDiag := time.Now()
+			reqDiag, _ := http.NewRequest("GET", baseURL+"/diagnostics", nil)
+			reqDiag.Header.Set("X-AGY-Token", server.Token)
+			respDiag, err := client.Do(reqDiag)
+			diagDuration := time.Since(startDiag)
+
+			if err != nil {
+				errCh <- fmt.Errorf("diag concurrent caller %d error: %w", id, err)
+				return
+			}
+			_ = respDiag.Body.Close()
+			if respDiag.StatusCode != http.StatusOK {
+				errCh <- fmt.Errorf("diag concurrent caller %d: status %d", id, respDiag.StatusCode)
+				return
+			}
+			if diagDuration > 500*time.Millisecond {
+				errCh <- fmt.Errorf("diag concurrent caller %d regression: took %v (>500ms)", id, diagDuration)
+				return
+			}
+		}(h)
+	}
+
+	close(startBarrier)
+	wg.Wait()
+	close(errCh)
+
+	for reqErr := range errCh {
+		t.Errorf("Concurrent streaming error: %v", reqErr)
+	}
+
+	client.CloseIdleConnections()
+
+	// Memory & Goroutine Assertions
+	runtime.GC()
+	runtime.GC()
+	debug.FreeOSMemory()
+
+	var memStats runtime.MemStats
+	runtime.ReadMemStats(&memStats)
+
+	const maxAllocBytes = uint64(8 * 1024 * 1024) // 8 MB
+	const maxSysBytes = uint64(10 * 1024 * 1024)  // 10 MB
+
+	allocMB := float64(memStats.Alloc) / (1024 * 1024)
+	sysMB := float64(memStats.Sys) / (1024 * 1024)
+	heapInuseMB := float64(memStats.HeapInuse) / (1024 * 1024)
+
+	t.Logf("[50 Stream Workers Metrics] Alloc: %.2f MB (%d bytes), Sys: %.2f MB (%d bytes), HeapInuse: %.2f MB (%d bytes)",
+		allocMB, memStats.Alloc, sysMB, memStats.Sys, heapInuseMB, memStats.HeapInuse)
+
+	if memStats.Alloc >= maxAllocBytes {
+		t.Fatalf("MEMORY GATING BREACH: memStats.Alloc exceeds threshold! Got: %.2f MB (%d bytes), Max allowed: 8.00 MB (%d bytes)",
+			allocMB, memStats.Alloc, maxAllocBytes)
+	}
+
+	activeSysBytes := memStats.HeapInuse
+	if memStats.Sys < maxSysBytes {
+		activeSysBytes = memStats.Sys
+	}
+	if activeSysBytes >= maxSysBytes {
+		t.Fatalf("MEMORY GATING BREACH: active system memory exceeds threshold! Got: %.2f MB (%d bytes), Max allowed: 10.00 MB (%d bytes)",
+			float64(activeSysBytes)/(1024*1024), activeSysBytes, maxSysBytes)
+	}
+
+	// Goroutine normalization within 500ms
+	deadline := time.Now().Add(500 * time.Millisecond)
+	goroutinesNormalized := false
+	var finalGoroutines int
+	for time.Now().Before(deadline) {
+		finalGoroutines = runtime.NumGoroutine()
+		if finalGoroutines <= baselineGoroutines+3 {
+			goroutinesNormalized = true
+			break
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	if !goroutinesNormalized {
+		t.Fatalf("GOROUTINE LEAK: NumGoroutine did not normalize within 500ms. Baseline: %d, Final: %d",
+			baselineGoroutines, finalGoroutines)
 	}
 }

@@ -183,3 +183,19 @@ func TestLogRingBuffer_WriterInterface(t *testing.T) {
 		t.Fatalf("expected level 'INFO', got %q", entries[0].Level)
 	}
 }
+
+func BenchmarkLogRingBuffer_Add(b *testing.B) {
+	rb := NewLogRingBuffer(LogBufferCapacity)
+	now := time.Now().UTC()
+	entry := LogEntry{
+		Timestamp: now,
+		Level:     "INFO",
+		Message:   "daemon operational check",
+	}
+
+	b.ResetTimer()
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		rb.Add(entry)
+	}
+}

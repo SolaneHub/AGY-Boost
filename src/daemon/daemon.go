@@ -94,10 +94,34 @@ func NewDaemonServerWithDir(port int, customUserDataDir string) (*DaemonServer, 
 	_ = os.MkdirAll(modsDir, 0755)
 
 	tokenPath := filepath.Join(userData, ".token")
+	if fi, err := os.Lstat(tokenPath); err == nil {
+		if fi.Mode()&os.ModeSymlink != 0 {
+			return nil, fmt.Errorf("token file %s is a symlink", tokenPath)
+		}
+		if !fi.Mode().IsRegular() {
+			return nil, fmt.Errorf("token file %s is not a regular file", tokenPath)
+		}
+	}
+
 	var token string
-	if data, err := os.ReadFile(tokenPath); err == nil && len(strings.TrimSpace(string(data))) == 64 {
-		token = strings.TrimSpace(string(data))
-	} else {
+	if data, err := os.ReadFile(tokenPath); err == nil {
+		trimmed := strings.TrimSpace(string(data))
+		if len(trimmed) == 64 {
+			if _, hexErr := hex.DecodeString(trimmed); hexErr == nil {
+				if permErr := validateSecureTokenPermissions(tokenPath); permErr != nil {
+					if secErr := ensureSecureTokenPermissions(tokenPath); secErr != nil {
+						return nil, fmt.Errorf("insecure token file %s could not be secured: %w", tokenPath, secErr)
+					}
+					if revalErr := validateSecureTokenPermissions(tokenPath); revalErr != nil {
+						return nil, fmt.Errorf("token file %s remains invalid after securing: %w", tokenPath, revalErr)
+					}
+				}
+				token = trimmed
+			}
+		}
+	}
+
+	if token == "" {
 		var err error
 		token, err = generateSecureToken()
 		if err != nil {

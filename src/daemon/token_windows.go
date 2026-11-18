@@ -5,26 +5,33 @@ package daemon
 import (
 	"fmt"
 	"os"
-	"os/exec"
 )
+
+// ensureSecureTokenPermissions enforces strict ACLs on the token file via icacls on Windows.
+func ensureSecureTokenPermissions(tokenPath string) error {
+	return ensureSecureTokenPermissionsWindows(tokenPath)
+}
+
+// validateSecureTokenPermissions validates that the token file exists, is regular, and has valid ACLs via icacls.
+func validateSecureTokenPermissions(tokenPath string) error {
+	return validateSecureTokenPermissionsWindows(tokenPath)
+}
 
 // writeSecureToken writes the daemon security token to tokenPath and locks down ACLs on Windows NTFS.
 func writeSecureToken(tokenPath, token string) error {
-	if err := os.WriteFile(tokenPath, []byte(token), 0600); err != nil {
+	if fi, err := os.Lstat(tokenPath); err == nil {
+		if fi.Mode()&os.ModeSymlink != 0 {
+			return fmt.Errorf("refusing to write token to symlink: %s", tokenPath)
+		}
+		if !fi.Mode().IsRegular() {
+			return fmt.Errorf("refusing to write token to non-regular file: %s", tokenPath)
+		}
+	} else if !os.IsNotExist(err) {
 		return err
 	}
 
-	username := os.Getenv("USERNAME")
-	if username == "" {
-		return nil
+	if err := os.WriteFile(tokenPath, []byte(token), 0600); err != nil {
+		return err
 	}
-
-	// Remove inherited ACLs and grant exclusive Read/Write permissions to current user:
-	// icacls <tokenPath> /inheritance:r /grant:r "%USERNAME%":(R,W)
-	cmd := exec.Command("icacls", tokenPath, "/inheritance:r", "/grant:r", fmt.Sprintf("%s:(R,W)", username))
-	if out, err := cmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("failed to secure token permissions via icacls: %w (output: %s)", err, string(out))
-	}
-
-	return nil
+	return ensureSecureTokenPermissions(tokenPath)
 }

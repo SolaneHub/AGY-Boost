@@ -64,6 +64,41 @@ Effort Optimizer gives you fine-grained control over Gemini and LLM reasoning de
 Use the composer button docked beside the model selector or trigger /effort-optimizer directly in chat.`,
   },
   {
+    id: "wasm-ast-engine",
+    name: "WASM AST Engine",
+    category: "compute",
+    badges: ["WASM", "FAST"],
+    description:
+      "High-speed WebAssembly Abstract Syntax Tree parsing and transformation engine. Enables sub-millisecond code structure extraction directly in the client runtime.",
+    iconBg: "bg-gradient-to-br from-purple-500/20 to-indigo-500/10 text-purple-400",
+    iconSvg: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 14 10 14 10 20"/><polyline points="20 10 14 10 14 4"/><line x1="14" y1="10" x2="21" y2="3"/><line x1="3" y1="21" x2="10" y2="14"/></svg>`,
+    version: "1.0.0",
+    author: "AGY Boost Team",
+    runtime: "WebAssembly Compute Core",
+    prompts: [
+      "Parse current file AST and extract symbol dependencies",
+      "Analyze syntax tree complexity across project modules",
+      "Execute AST-guided refactoring on highlighted function",
+    ],
+    commands: [
+      {
+        name: "/wasm-ast",
+        description: "Parse and inspect Abstract Syntax Tree using client WebAssembly.",
+      },
+      {
+        name: "/wasm-symbols",
+        description: "Extract exported symbols and interface definitions via AST.",
+      },
+    ],
+    readme: `### Overview
+WASM AST Engine brings native-speed AST generation and syntax analysis into the Antigravity client runtime.
+
+### Key Features
+- **Sub-Millisecond Parsing**: WebAssembly-accelerated parsing for TypeScript, Go, Python, and Rust.
+- **Symbol Graph Extraction**: Instantly constructs symbol graphs without server roundtrips.
+- **Zero Invariant Impact**: Safe DOM and worker isolation.`,
+  },
+  {
     id: "stream-accel",
     name: "Stream Accelerator",
     category: "compute",
@@ -179,6 +214,41 @@ Vector Embeddings Cache provides local, ultra-low-latency semantic search over y
   },
 
   // Willow UI & Visual Themes
+  {
+    id: "theme-studio",
+    name: "Theme Studio",
+    category: "theme",
+    badges: ["THEME", "UI"],
+    description:
+      "Interactive visual theme designer and token customizer for Antigravity. Craft custom palettes, surface contrast levels, and syntax highlights live in the client.",
+    iconBg: "bg-gradient-to-br from-violet-500/20 to-fuchsia-500/10 text-violet-400",
+    iconSvg: `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m12 2a14.5 14.5 0 0 0 0 20 10 10 0 0 0 0-20"/><path d="M12 2a14.5 14.5 0 0 1 0 20 10 10 0 0 1 0-20"/><path d="M2 12h20"/></svg>`,
+    version: "1.0.0",
+    author: "AGY Boost Design",
+    runtime: "Pure TypeScript / CSS Engine",
+    prompts: [
+      "Open Theme Studio palette customizer",
+      "Generate high-contrast color scheme for code editor",
+      "Export active theme variables to mod style",
+    ],
+    commands: [
+      {
+        name: "/theme-studio",
+        description: "Open interactive Theme Studio visual designer and color picker.",
+      },
+      {
+        name: "/theme-export",
+        description: "Export current theme tokens to JSON configuration.",
+      },
+    ],
+    readme: `### Overview
+Theme Studio provides real-time visual theming capabilities directly inside Antigravity without restarting the application.
+
+### Key Features
+- **Live Token Tuning**: Edit surface colors, accents, and typography tokens with immediate visual feedback.
+- **Contrast Ratios**: Real-time WCAG 2.1 AA/AAA contrast auditing.
+- **HUD Integration**: Optional floating HUD preview bar.`,
+  },
   {
     id: "theme-oled",
     name: "OLED Midnight Pure Black",

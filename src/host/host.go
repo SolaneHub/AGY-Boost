@@ -29,21 +29,23 @@ type MarkerData struct {
 	AGYBoostVersion string `json:"agyBoostVersion"`
 	PatchedAt       string `json:"patchedAt"`
 	HostVersion     string `json:"hostVersion"`
+	EntryPoint      string `json:"entryPoint,omitempty"`
 }
 
 // FindAntigravity locates the standard Antigravity installation on the host system.
+// If customPath is provided, only customPath is inspected.
 func FindAntigravity(customPath string) (*HostInfo, error) {
+	if customPath != "" {
+		info, err := inspectCandidate(customPath)
+		if err != nil {
+			return nil, fmt.Errorf("custom Antigravity path invalid: %w", err)
+		}
+		return info, nil
+	}
+
 	var candidates []string
 
-	if customPath != "" {
-		candidates = append(candidates, customPath)
-	}
-
-	usr, _ := user.Current()
-	home := ""
-	if usr != nil {
-		home = usr.HomeDir
-	}
+	home, _ := resolveHomeDir()
 
 	switch runtime.GOOS {
 	case "darwin":
@@ -185,32 +187,66 @@ func fileExists(p string) bool {
 	return err == nil
 }
 
+func resolveHomeDir() (string, error) {
+	home, err := os.UserHomeDir()
+	if err == nil && home != "" {
+		return home, nil
+	}
+	usr, err := user.Current()
+	if err == nil && usr.HomeDir != "" {
+		return usr.HomeDir, nil
+	}
+	if homeEnv := os.Getenv("HOME"); homeEnv != "" {
+		return homeEnv, nil
+	}
+	if userProfile := os.Getenv("USERPROFILE"); userProfile != "" {
+		return userProfile, nil
+	}
+	return "", fmt.Errorf("unable to determine user home directory")
+}
+
 // UserDataDir returns the platform-specific data directory for AGY Boost
 func UserDataDir() (string, error) {
 	if custom := os.Getenv("AGY_BOOST_USER_DATA"); custom != "" {
 		return custom, nil
 	}
 
-	usr, err := user.Current()
+	homeDir, err := resolveHomeDir()
 	if err != nil {
 		return "", err
 	}
 
-	switch runtime.GOOS {
+	return userDataDirForOS(runtime.GOOS, homeDir), nil
+}
+
+func userDataDirForOS(goos, homeDir string) string {
+	switch goos {
 	case "darwin":
-		return filepath.Join(usr.HomeDir, "Library", "Application Support", "AGYBoost"), nil
+		return filepath.Join(homeDir, "Library", "Application Support", "AGYBoost")
 	case "windows":
 		appData := os.Getenv("APPDATA")
 		if appData == "" {
-			appData = filepath.Join(usr.HomeDir, "AppData", "Roaming")
+			appData = filepath.Join(homeDir, "AppData", "Roaming")
 		}
-		return filepath.Join(appData, "AGYBoost"), nil
+		return filepath.Join(appData, "AGYBoost")
 	default:
-		legacyPath := filepath.Join(usr.HomeDir, ".config", "agy-boost")
-		standardPath := filepath.Join(usr.HomeDir, ".config", "AGYBoost")
-		if fileExists(legacyPath) && !fileExists(standardPath) {
-			return legacyPath, nil
+		var configBase string
+		if xdg := os.Getenv("XDG_CONFIG_HOME"); xdg != "" && filepath.IsAbs(xdg) {
+			configBase = xdg
+		} else {
+			configBase = filepath.Join(homeDir, ".config")
 		}
-		return standardPath, nil
+
+		standardPath := filepath.Join(configBase, "AGYBoost")
+		legacyPath := filepath.Join(configBase, "agy-boost")
+		homeLegacyPath := filepath.Join(homeDir, ".config", "agy-boost")
+
+		if fileExists(legacyPath) && !fileExists(standardPath) {
+			return legacyPath
+		}
+		if fileExists(homeLegacyPath) && !fileExists(standardPath) {
+			return homeLegacyPath
+		}
+		return standardPath
 	}
 }

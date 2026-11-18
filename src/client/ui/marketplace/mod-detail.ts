@@ -3,6 +3,7 @@
 import { el, createSvgIcon } from "../dom.js";
 import type { DaemonBridge } from "../../bridge/daemon.js";
 import { getMarketplaceMod } from "./catalog.js";
+import { diagnostics } from "../../diagnostics/ring-buffer.js";
 
 export interface ModDetailOptions {
   modId: string;
@@ -506,6 +507,7 @@ export async function renderModDetail(
 
   function switchTab(tab: "overview" | "skills"): void {
     activeDetailTab = tab;
+    diagnostics.record("INFO", "mod-detail", `Switched tab to ${tab}`, { modId, tab });
 
     if (tab === "overview") {
       tabOverview.setAttribute("aria-selected", "true");

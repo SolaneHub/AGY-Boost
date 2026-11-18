@@ -69,7 +69,11 @@ func Apply(info *host.HostInfo, runtimeJS []byte) error {
 		return fmt.Errorf("failed to write runtime.js: %w", err)
 	}
 
-	// 3. Prepare bootstrap assets for the new app.asar
+	// 3. Detect actual host entry point from original _app.asar package.json or fallback candidates
+	entryPoint := DetectHostEntryPoint(backupAsar)
+
+	// 4. Prepare bootstrap assets for the new app.asar
+	escapedEntryJSON, _ := json.Marshal(entryPoint)
 	bootstrapJS := fmt.Sprintf(`// AGY Boost v%s - Native Bootstrap Loader
 const path = require("node:path");
 const fs = require("node:fs");
@@ -80,7 +84,7 @@ const originalAsar = path.join(resourcesDir, "_app.asar");
 const runtimeFile = path.join(resourcesDir, ".agy-boost", "runtime.js");
 
 // Read original package.json to restore host identity
-let mainEntry = "dist/main.js";
+let mainEntry = %s;
 try {
   const originalPkg = JSON.parse(fs.readFileSync(path.join(originalAsar, "package.json"), "utf8"));
   if (originalPkg) {
@@ -129,11 +133,25 @@ app.on("web-contents-created", (_event, webContents) => {
         if (fs.existsSync(runtimeFile)) {
           let tokenScript = "";
           try {
-            const tokenPath = process.platform === "darwin"
-              ? path.join(app.getPath("home"), "Library", "Application Support", "AGYBoost", ".token")
-              : (process.platform === "win32"
-                ? path.join(process.env.APPDATA || path.join(app.getPath("home"), "AppData", "Roaming"), "AGYBoost", ".token")
-                : path.join(app.getPath("home"), ".config", "AGYBoost", ".token"));
+            const customUserData = process.env.AGY_BOOST_USER_DATA;
+            const xdgEnv = process.env.XDG_CONFIG_HOME;
+            const xdgConfig = (xdgEnv && path.isAbsolute(xdgEnv)) ? xdgEnv : path.join(app.getPath("home"), ".config");
+            let tokenPath = customUserData
+              ? path.join(customUserData, ".token")
+              : (process.platform === "darwin"
+                ? path.join(app.getPath("home"), "Library", "Application Support", "AGYBoost", ".token")
+                : (process.platform === "win32"
+                  ? path.join(process.env.APPDATA || path.join(app.getPath("home"), "AppData", "Roaming"), "AGYBoost", ".token")
+                  : path.join(xdgConfig, "AGYBoost", ".token")));
+            if (!customUserData && process.platform !== "darwin" && process.platform !== "win32" && !fs.existsSync(tokenPath)) {
+              const legacyTokenPath = path.join(xdgConfig, "agy-boost", ".token");
+              const homeLegacyTokenPath = path.join(app.getPath("home"), ".config", "agy-boost", ".token");
+              if (fs.existsSync(legacyTokenPath)) {
+                tokenPath = legacyTokenPath;
+              } else if (fs.existsSync(homeLegacyTokenPath)) {
+                tokenPath = homeLegacyTokenPath;
+              }
+            }
             if (fs.existsSync(tokenPath)) {
               const tokenVal = fs.readFileSync(tokenPath, "utf8").trim();
               if (tokenVal) tokenScript = "globalThis.__AGY_TOKEN__ = " + JSON.stringify(tokenVal) + "; if (document.documentElement) document.documentElement.dataset.agyToken = " + JSON.stringify(tokenVal) + ";\n";
@@ -161,7 +179,7 @@ app.on("certificate-error", (event, webContents, url, error, certificate, callba
 const originalMain = path.join(originalAsar, mainEntry);
 require.main.filename = originalMain;
 require(originalMain);
-`, AGYBoostVersion)
+`, AGYBoostVersion, string(escapedEntryJSON))
 
 	bootstrapPkg := `{"name":"antigravity","main":"bootstrap.js"}`
 
@@ -182,16 +200,51 @@ require(originalMain);
 		return fmt.Errorf("failed to replace app.asar: %w", err)
 	}
 
-	// 4. Write marker file
+	// 5. Write marker file
 	marker := host.MarkerData{
 		AGYBoostVersion: AGYBoostVersion,
 		PatchedAt:       time.Now().UTC().Format(time.RFC3339),
 		HostVersion:     info.Version,
+		EntryPoint:      entryPoint,
 	}
 	markerJSON, _ := json.MarshalIndent(marker, "", "  ")
 	_ = os.WriteFile(markerPath, markerJSON, 0644)
 
 	return nil
+}
+
+// DetectHostEntryPoint inspects an original Antigravity ASAR archive to detect its main entry point.
+// It first attempts to parse package.json from the archive. If missing or invalid, it tests standard
+// fallback entry points (e.g. dist/main.js, bundle/desktop.js, etc.) and defaults safely to "dist/main.js".
+func DetectHostEntryPoint(asarPath string) string {
+	fallbackCandidates := []string{
+		"dist/main.js",
+		"bundle/entry.cjs",
+		"bundle/desktop.js",
+		"bundle/main.js",
+		"main.js",
+		"index.js",
+	}
+
+	// 1. Try reading package.json from the archive
+	if pkgBytes, err := ReadAsarFile(asarPath, "package.json"); err == nil {
+		var pkg struct {
+			Main string `json:"main"`
+		}
+		if err := json.Unmarshal(pkgBytes, &pkg); err == nil && pkg.Main != "" {
+			return filepath.ToSlash(filepath.Clean(pkg.Main))
+		}
+	}
+
+	// 2. Fallback: inspect ASAR header for presence of known entry point files
+	for _, candidate := range fallbackCandidates {
+		if AsarFileExists(asarPath, candidate) {
+			return candidate
+		}
+	}
+
+	// 3. Ultimate default
+	return "dist/main.js"
 }
 
 // Restore removes the AGY Boost patch and restores stock Antigravity byte-for-byte.

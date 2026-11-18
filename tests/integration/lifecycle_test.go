@@ -109,6 +109,9 @@ func TestAGYBoostLifecycleE2E(t *testing.T) {
 	if marker.AGYBoostVersion != patcher.AGYBoostVersion {
 		t.Errorf("[Test 2] marker AGYBoostVersion mismatch: got %s, want %s", marker.AGYBoostVersion, patcher.AGYBoostVersion)
 	}
+	if marker.EntryPoint != "dist/main.js" {
+		t.Errorf("[Test 2] marker EntryPoint mismatch: got %s, want dist/main.js", marker.EntryPoint)
+	}
 
 	// Verify host status reflects patched state
 	updatedInfo, err := host.FindAntigravity(mock.RootDir)
@@ -259,4 +262,165 @@ func TestAGYBoostLifecycleE2E(t *testing.T) {
 	if finalInfo.IsPatched {
 		t.Errorf("[Test 4] expected IsPatched=false after restore, got true")
 	}
+}
+
+// TestMultiVersionHostScenarios tests end-to-end patch, execution/inspection, and restore
+// across heterogeneous Google Antigravity release scenarios:
+// - Scenario A: Standard Antigravity (dist/main.js)
+// - Scenario B: Next-Gen Antigravity (bundle/entry.cjs with custom package.json)
+// - Scenario C: Broken/unsupported host structure without resources directory
+func TestMultiVersionHostScenarios(t *testing.T) {
+	mockRuntimeJS := []byte("window.__AGY_BOOST_LOADED__ = true;")
+
+	// --- SCENARIO A: Standard Antigravity (dist/main.js) ---
+	t.Run("ScenarioA_StandardAntigravity", func(t *testing.T) {
+		mockA := harness.NewMockHostWithConfig(t, harness.MockHostConfig{
+			Version:   "2.32.1",
+			MainEntry: "dist/main.js",
+		})
+
+		infoA, err := host.FindAntigravity(mockA.RootDir)
+		if err != nil {
+			t.Fatalf("FindAntigravity failed for Scenario A: %v", err)
+		}
+		infoA.Version = "2.32.1"
+
+		if err := patcher.Apply(infoA, mockRuntimeJS); err != nil {
+			t.Fatalf("patcher.Apply failed on Scenario A: %v", err)
+		}
+
+		// Verify marker records the actual delegated entry point
+		markerDataA, err := os.ReadFile(infoA.MarkerPath)
+		if err != nil {
+			t.Fatalf("failed to read marker in Scenario A: %v", err)
+		}
+		var markerA host.MarkerData
+		if err := json.Unmarshal(markerDataA, &markerA); err != nil {
+			t.Fatalf("failed to parse marker JSON in Scenario A: %v", err)
+		}
+		if markerA.EntryPoint != "dist/main.js" {
+			t.Errorf("Scenario A entry point mismatch: got %q, want %q", markerA.EntryPoint, "dist/main.js")
+		}
+
+		// Verify bootstrap code embeds mainEntry
+		bootstrapCode, err := patcher.ReadAsarFile(infoA.CurrentAsar, "bootstrap.js")
+		if err != nil {
+			t.Fatalf("failed to read bootstrap.js from patched asar: %v", err)
+		}
+		if !containsSubslice(bootstrapCode, []byte(`"dist/main.js"`)) {
+			t.Errorf("bootstrap.js does not contain expected mainEntry dist/main.js")
+		}
+
+		// Verify unpatch restores byte-for-byte
+		if err := patcher.Restore(infoA); err != nil {
+			t.Fatalf("patcher.Restore failed on Scenario A: %v", err)
+		}
+		restoredSHA, err := harness.FileSHA256(infoA.CurrentAsar)
+		if err != nil {
+			t.Fatalf("failed to hash restored app.asar in Scenario A: %v", err)
+		}
+		if restoredSHA != mockA.OriginalSHA256 {
+			t.Errorf("Scenario A byte-for-byte restore mismatch: got %s, want %s", restoredSHA, mockA.OriginalSHA256)
+		}
+	})
+
+	// --- SCENARIO B: Next-Gen Antigravity (bundle/entry.cjs with custom package.json) ---
+	t.Run("ScenarioB_NextGenAntigravity", func(t *testing.T) {
+		mockB := harness.NewMockHostWithConfig(t, harness.MockHostConfig{
+			Version:     "3.0.0-nextgen",
+			MainEntry:   "bundle/entry.cjs",
+			PackageJSON: `{"name":"antigravity-next","version":"3.0.0-nextgen","main":"bundle/entry.cjs","productName":"Antigravity Next"}`,
+		})
+
+		infoB, err := host.FindAntigravity(mockB.RootDir)
+		if err != nil {
+			t.Fatalf("FindAntigravity failed for Scenario B: %v", err)
+		}
+		infoB.Version = "3.0.0-nextgen"
+
+		if err := patcher.Apply(infoB, mockRuntimeJS); err != nil {
+			t.Fatalf("patcher.Apply failed on Scenario B: %v", err)
+		}
+
+		// Verify marker dynamically detected and recorded bundle/entry.cjs
+		markerDataB, err := os.ReadFile(infoB.MarkerPath)
+		if err != nil {
+			t.Fatalf("failed to read marker in Scenario B: %v", err)
+		}
+		var markerB host.MarkerData
+		if err := json.Unmarshal(markerDataB, &markerB); err != nil {
+			t.Fatalf("failed to parse marker JSON in Scenario B: %v", err)
+		}
+		if markerB.EntryPoint != "bundle/entry.cjs" {
+			t.Errorf("Scenario B entry point mismatch: got %q, want %q", markerB.EntryPoint, "bundle/entry.cjs")
+		}
+
+		// Verify bootstrap code embeds bundle/entry.cjs as fallback default
+		bootstrapCode, err := patcher.ReadAsarFile(infoB.CurrentAsar, "bootstrap.js")
+		if err != nil {
+			t.Fatalf("failed to read bootstrap.js from patched asar in Scenario B: %v", err)
+		}
+		if !containsSubslice(bootstrapCode, []byte(`"bundle/entry.cjs"`)) {
+			t.Errorf("bootstrap.js does not contain detected mainEntry bundle/entry.cjs")
+		}
+
+		// Verify unpatch restores byte-for-byte
+		if err := patcher.Restore(infoB); err != nil {
+			t.Fatalf("patcher.Restore failed on Scenario B: %v", err)
+		}
+		restoredSHA, err := harness.FileSHA256(infoB.CurrentAsar)
+		if err != nil {
+			t.Fatalf("failed to hash restored app.asar in Scenario B: %v", err)
+		}
+		if restoredSHA != mockB.OriginalSHA256 {
+			t.Errorf("Scenario B byte-for-byte restore mismatch: got %s, want %s", restoredSHA, mockB.OriginalSHA256)
+		}
+	})
+
+	// --- SCENARIO C: Structure lacking standard resources directory ---
+	t.Run("ScenarioC_MissingResourcesFolder", func(t *testing.T) {
+		mockC := harness.NewMockHostWithConfig(t, harness.MockHostConfig{
+			OmitResourcesFolder: true,
+		})
+
+		_, err := host.FindAntigravity(mockC.RootDir)
+		if err == nil {
+			t.Errorf("expected FindAntigravity to fail on host without resources folder, got nil")
+		}
+
+		// Also verify patcher.Apply directly fails safely when given invalid host info
+		invalidInfo := &host.HostInfo{
+			Platform:      runtime.GOOS,
+			RootPath:      mockC.RootDir,
+			ResourcesPath: mockC.ResourcesDir, // directory doesn't exist
+			CurrentAsar:   mockC.AppAsarPath,
+			OriginalAsar:  filepath.Join(mockC.ResourcesDir, "_app.asar"),
+			MarkerPath:    filepath.Join(mockC.ResourcesDir, ".agy-boost.json"),
+		}
+		if err := patcher.Apply(invalidInfo, mockRuntimeJS); err == nil {
+			t.Errorf("expected patcher.Apply to fail gracefully when resources/app.asar does not exist, got nil")
+		}
+	})
+}
+
+func containsSubslice(data, sub []byte) bool {
+	if len(sub) == 0 {
+		return true
+	}
+	if len(data) < len(sub) {
+		return false
+	}
+	for i := 0; i <= len(data)-len(sub); i++ {
+		match := true
+		for j := 0; j < len(sub); j++ {
+			if data[i+j] != sub[j] {
+				match = false
+				break
+			}
+		}
+		if match {
+			return true
+		}
+	}
+	return false
 }

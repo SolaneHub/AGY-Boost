@@ -30,6 +30,8 @@ func main() {
 		runLint(args)
 	case "typecheck":
 		runTypecheck(args)
+	case "gen-schema":
+		runGenSchema()
 	case "copy-runtime":
 		runCopyRuntime()
 	case "test-selective":
@@ -46,6 +48,8 @@ func main() {
 		runBuild("win")
 	case "linux":
 		runBuild("linux")
+	case "release-gate":
+		runReleaseGate(args)
 	default:
 		fmt.Fprintf(os.Stderr, "Unknown command: %s\n", command)
 		printUsage()
@@ -58,10 +62,12 @@ func printUsage() {
 	fmt.Println("Commands:")
 	fmt.Println("  format [--check]       Format Go files using gofmt (-w or -l)")
 	fmt.Println("  lint                   Run go vet and golangci-lint")
-	fmt.Println("  typecheck              Typecheck Go packages ('go test -run=^$ ./...')")
+	fmt.Println("  typecheck              Typecheck Go packages and generate contract schema")
+	fmt.Println("  gen-schema             Generate daemon API intermediate contract schema")
 	fmt.Println("  copy-runtime           Deploy client runtime to embedded and dist")
 	fmt.Println("  test-selective         Run selective test loop based on git diff")
 	fmt.Println("  build [target]         Build CLI binary (host, win, linux, all)")
+	fmt.Println("  release-gate           Run full 8-step release verification gate with scorecard")
 }
 
 func runFormat(args []string) {
@@ -168,6 +174,20 @@ func runTypecheck(_ []string) {
 		os.Exit(1)
 	}
 	fmt.Println("Go typecheck passed.")
+
+	// Automatically run intermediate contract schema generation
+	runGenSchema()
+}
+
+func runGenSchema() {
+	fmt.Println("Generating daemon API contract schema ('go run ./tests/tooling/genschema')...")
+	cmd := exec.Command("go", "run", "./tests/tooling/genschema")
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		fmt.Fprintf(os.Stderr, "Contract schema generation failed: %v\n", err)
+		os.Exit(1)
+	}
 }
 
 func runCopyRuntime() {
@@ -335,4 +355,137 @@ func buildBinary(outPath string, envVars map[string]string) {
 		fmt.Fprintf(os.Stderr, "Build failed for %s: %v\n", cleanPath, err)
 		os.Exit(1)
 	}
+}
+
+type GateStep struct {
+	Index   int
+	Name    string
+	Command string
+	Status  string // "PASSED", "FAILED", "SKIPPED"
+	Dur     time.Duration
+}
+
+func runReleaseGate(args []string) {
+	var failAt string
+	hasFailAt := false
+	for _, arg := range args {
+		if strings.HasPrefix(arg, "--fail-at=") {
+			failAt = strings.TrimPrefix(arg, "--fail-at=")
+			hasFailAt = true
+		} else {
+			fmt.Fprintf(os.Stderr, "Unknown flag for release-gate: %s\n", arg)
+			printUsage()
+			os.Exit(1)
+		}
+	}
+
+	steps := []GateStep{
+		{Index: 1, Name: "format:check", Command: "pnpm run format:check"},
+		{Index: 2, Name: "lint", Command: "pnpm run lint"},
+		{Index: 3, Name: "typecheck", Command: "pnpm run typecheck"},
+		{Index: 4, Name: "test:fast", Command: "pnpm run test:fast"},
+		{Index: 5, Name: "test:stress", Command: "pnpm run test:stress"},
+		{Index: 6, Name: "test:integration", Command: "pnpm run test:integration"},
+		{Index: 7, Name: "test:e2e", Command: "pnpm run test:e2e"},
+		{Index: 8, Name: "build:all", Command: "pnpm run build:all"},
+	}
+
+	if hasFailAt {
+		valid := false
+		for _, s := range steps {
+			if s.Name == failAt {
+				valid = true
+				break
+			}
+		}
+		if !valid {
+			fmt.Fprintf(os.Stderr, "Invalid step for --fail-at: %s\n", failAt)
+			os.Exit(1)
+		}
+	}
+
+	totalStart := time.Now()
+	failed := false
+	failedStepIdx := -1
+
+	fmt.Println("================================================================================")
+	fmt.Println("                AGY BOOST - FULL RELEASE VERIFICATION GATE                     ")
+	fmt.Println("================================================================================")
+
+	for i := range steps {
+		step := &steps[i]
+		if failed {
+			step.Status = "SKIPPED"
+			step.Dur = 0
+			continue
+		}
+
+		fmt.Printf("\n▶ [%d/%d] Running %s (%s)...\n", step.Index, len(steps), step.Name, step.Command)
+		stepStart := time.Now()
+
+		var err error
+		if failAt != "" && step.Name == failAt {
+			err = fmt.Errorf("simulated failure at step %s via --fail-at flag", step.Name)
+		} else {
+			var cmd *exec.Cmd
+			if runtime.GOOS == "windows" {
+				cmd = exec.Command("cmd.exe", "/c", "pnpm", "run", step.Name)
+			} else {
+				cmd = exec.Command("pnpm", "run", step.Name)
+			}
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+			cmd.Stdin = os.Stdin
+			err = cmd.Run()
+		}
+
+		step.Dur = time.Since(stepStart)
+
+		if err != nil {
+			step.Status = "FAILED"
+			failed = true
+			failedStepIdx = i
+			fmt.Fprintf(os.Stderr, "\n✖ Step %s failed after %.2fs: %v\n", step.Name, step.Dur.Seconds(), err)
+		} else {
+			step.Status = "PASSED"
+			fmt.Printf("✔ Step %s passed in %.2fs\n", step.Name, step.Dur.Seconds())
+		}
+	}
+
+	totalDur := time.Since(totalStart)
+	printScorecard(steps, totalDur, failed, failedStepIdx)
+
+	if failed {
+		os.Exit(1)
+	}
+}
+
+func printScorecard(steps []GateStep, totalDur time.Duration, failed bool, failedStepIdx int) {
+	fmt.Println("\n================================================================================")
+	fmt.Println("                           RELEASE GATE SCORECARD                               ")
+	fmt.Println("================================================================================")
+	fmt.Println("| Step | Step Name        | Status   | Duration   |")
+	fmt.Println("+------+------------------+----------+------------+")
+	for _, step := range steps {
+		fmt.Printf("| %-4d | %-16s | %-8s | %-10s |\n",
+			step.Index,
+			step.Name,
+			step.Status,
+			fmt.Sprintf("%.2fs", step.Dur.Seconds()),
+		)
+	}
+	fmt.Println("+------+------------------+----------+------------+")
+	if failed && failedStepIdx >= 0 {
+		fmt.Printf("Total Duration: %.2fs | Result: FAILED AT STEP %d (%s)\n",
+			totalDur.Seconds(),
+			steps[failedStepIdx].Index,
+			steps[failedStepIdx].Name,
+		)
+	} else {
+		fmt.Printf("Total Duration: %.2fs | Result: ALL %d STEPS PASSED (Ready for release)\n",
+			totalDur.Seconds(),
+			len(steps),
+		)
+	}
+	fmt.Println("================================================================================")
 }

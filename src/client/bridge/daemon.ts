@@ -7,11 +7,76 @@ export interface ModInfo {
   description: string;
   author?: string;
   main?: string;
-  style?: string | string[];
+  style?: any;
   wasm?: string;
   daemon?: string;
   enabled: boolean;
   path: string;
+}
+
+export interface LogEntry {
+  timestamp: string;
+  level: string;
+  message: string;
+}
+
+export interface DiagnosticsResponse {
+  uptime: string;
+  uptimeSeconds: number;
+  residentMemoryKB: number;
+  goroutines: number;
+  activeGoroutines: number;
+  enabledMods: number;
+  enabledModsCount: number;
+  logs: LogEntry[];
+}
+
+export interface ModTogglePayload {
+  id: string;
+  enabled: boolean;
+}
+
+export interface ModToggleResponse {
+  ok: boolean;
+  id: string;
+  enabled: boolean;
+}
+
+export interface OpenFolderResponse {
+  ok: boolean;
+  path?: string;
+}
+
+export interface DaemonSpawnPayload {
+  modId: string;
+  binaryPath: string;
+  args: string[];
+}
+
+export interface DaemonSpawnResponse {
+  ok: boolean;
+  pid: number;
+  modId: string;
+}
+
+export interface DaemonKillPayload {
+  modId: string;
+}
+
+export interface DaemonKillResponse {
+  ok: boolean;
+  modId: string;
+}
+
+export interface HealthResponse {
+  status: string;
+  version: string;
+  uptime: string;
+  modsDir: string;
+}
+
+export interface AuthTokenHeaders {
+  token: string;
 }
 
 export class DaemonBridge {
@@ -55,6 +120,28 @@ export class DaemonBridge {
     }
   }
 
+  async getHealth(): Promise<HealthResponse | null> {
+    try {
+      const res = await fetch(`${this.baseUrl}/health`, { signal: AbortSignal.timeout(1000) });
+      if (!res.ok) return null;
+      return (await res.json()) as HealthResponse;
+    } catch {
+      return null;
+    }
+  }
+
+  async getDiagnostics(): Promise<DiagnosticsResponse | null> {
+    try {
+      const res = await fetch(`${this.baseUrl}/diagnostics`, {
+        headers: this.getAuthHeaders(),
+      });
+      if (!res.ok) return null;
+      return (await res.json()) as DiagnosticsResponse;
+    } catch {
+      return null;
+    }
+  }
+
   async getMods(): Promise<ModInfo[]> {
     try {
       const res = await fetch(`${this.baseUrl}/mods`, {
@@ -69,13 +156,14 @@ export class DaemonBridge {
 
   async toggleMod(id: string, enabled: boolean): Promise<boolean> {
     try {
+      const payload: ModTogglePayload = { id, enabled };
       const res = await fetch(`${this.baseUrl}/mods/toggle`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           ...this.getAuthHeaders(),
         },
-        body: JSON.stringify({ id, enabled }),
+        body: JSON.stringify(payload),
       });
       return res.ok;
     } catch {
@@ -98,7 +186,7 @@ export class DaemonBridge {
     }
   }
 
-  async openModsFolder(): Promise<{ ok: boolean; path?: string }> {
+  async openModsFolder(): Promise<OpenFolderResponse> {
     try {
       const res = await fetch(`${this.baseUrl}/mods/open-folder`, {
         method: "POST",
@@ -108,7 +196,7 @@ export class DaemonBridge {
         },
       });
       if (!res.ok) return { ok: false };
-      return await res.json();
+      return (await res.json()) as OpenFolderResponse;
     } catch {
       return { ok: false };
     }
@@ -126,17 +214,18 @@ export class DaemonBridge {
     modId: string,
     binaryPath: string,
     args: string[] = [],
-  ): Promise<{ ok: boolean; pid?: number }> {
+  ): Promise<DaemonSpawnResponse | { ok: false }> {
     try {
+      const payload: DaemonSpawnPayload = { modId, binaryPath, args };
       const res = await fetch(`${this.baseUrl}/daemon/spawn`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           ...this.getAuthHeaders(),
         },
-        body: JSON.stringify({ modId, binaryPath, args }),
+        body: JSON.stringify(payload),
       });
-      return await res.json();
+      return (await res.json()) as DaemonSpawnResponse;
     } catch {
       return { ok: false };
     }
@@ -144,13 +233,14 @@ export class DaemonBridge {
 
   async killDaemon(modId: string): Promise<boolean> {
     try {
+      const payload: DaemonKillPayload = { modId };
       const res = await fetch(`${this.baseUrl}/daemon/kill`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           ...this.getAuthHeaders(),
         },
-        body: JSON.stringify({ modId }),
+        body: JSON.stringify(payload),
       });
       return res.ok;
     } catch {

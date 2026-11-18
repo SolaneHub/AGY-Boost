@@ -9,6 +9,8 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
+	"strings"
 	"testing"
 	"time"
 )
@@ -371,6 +373,453 @@ func TestNewDaemonServerToken(t *testing.T) {
 	if string(directData) != testTokenDirect {
 		t.Errorf("token direct mismatch: got %s, want %s", string(directData), testTokenDirect)
 	}
+}
+
+// TestHelperProcess is invoked by mock exec.Cmd runners across platforms.
+func TestHelperProcess(t *testing.T) {
+	if os.Getenv("GO_WANT_HELPER_PROCESS") != "1" {
+		return
+	}
+	output := os.Getenv("HELPER_OUTPUT")
+	if output != "" {
+		_, _ = os.Stdout.WriteString(output)
+	}
+	exitCode := 0
+	if c := os.Getenv("HELPER_EXIT_CODE"); c != "" {
+		_, _ = fmt.Sscanf(c, "%d", &exitCode)
+	}
+	os.Exit(exitCode)
+}
+
+func mockIcaclsCommand(exitCode int, output string, recordFn func(name string, args ...string)) func(string, ...string) *exec.Cmd {
+	return func(name string, args ...string) *exec.Cmd {
+		if recordFn != nil {
+			recordFn(name, args...)
+		}
+		cs := []string{"-test.run=TestHelperProcess", "--", name}
+		cs = append(cs, args...)
+		cmd := exec.Command(os.Args[0], cs...)
+		cmd.Env = []string{
+			"GO_WANT_HELPER_PROCESS=1",
+			fmt.Sprintf("HELPER_EXIT_CODE=%d", exitCode),
+			fmt.Sprintf("HELPER_OUTPUT=%s", output),
+		}
+		return cmd
+	}
+}
+
+func TestTokenPermissions_POSIX_CreationAndValidation(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("skipping POSIX file mode test on Windows")
+	}
+
+	tempDir := t.TempDir()
+	tokenPath := filepath.Join(tempDir, ".token")
+	testToken := "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
+
+	if err := writeSecureToken(tokenPath, testToken); err != nil {
+		t.Fatalf("writeSecureToken failed: %v", err)
+	}
+
+	fi, err := os.Lstat(tokenPath)
+	if err != nil {
+		t.Fatalf("failed to stat token: %v", err)
+	}
+	if fi.Mode().Perm() != 0600 {
+		t.Errorf("expected token mode 0600, got %04o", fi.Mode().Perm())
+	}
+
+	if err := validateSecureTokenPermissions(tokenPath); err != nil {
+		t.Errorf("expected validateSecureTokenPermissions to succeed on 0600 file, got: %v", err)
+	}
+}
+
+func TestTokenPermissions_POSIX_LoosePermissionsCorrected(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("skipping POSIX file mode test on Windows")
+	}
+
+	tempDir := t.TempDir()
+	tokenPath := filepath.Join(tempDir, ".token")
+	testToken := "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789"
+
+	// Create file with loose permissions 0644
+	if err := os.WriteFile(tokenPath, []byte(testToken), 0644); err != nil {
+		t.Fatalf("failed to write 0644 token file: %v", err)
+	}
+	_ = os.Chmod(tokenPath, 0644)
+
+	// Validation must fail on loose mode
+	if err := validateSecureTokenPermissions(tokenPath); err == nil {
+		t.Fatalf("expected validateSecureTokenPermissions to fail for 0644 mode")
+	}
+
+	// ensureSecureTokenPermissions must correct to 0600
+	if err := ensureSecureTokenPermissions(tokenPath); err != nil {
+		t.Fatalf("ensureSecureTokenPermissions failed: %v", err)
+	}
+	fi, err := os.Lstat(tokenPath)
+	if err != nil {
+		t.Fatalf("stat failed: %v", err)
+	}
+	if fi.Mode().Perm() != 0600 {
+		t.Errorf("expected corrected mode 0600, got %04o", fi.Mode().Perm())
+	}
+	if err := validateSecureTokenPermissions(tokenPath); err != nil {
+		t.Errorf("validateSecureTokenPermissions failed after correction: %v", err)
+	}
+
+	// Test NewDaemonServerWithDir auto-corrects pre-existing 0666 token
+	tokenDir := t.TempDir()
+	existingTokenPath := filepath.Join(tokenDir, ".token")
+	if err := os.WriteFile(existingTokenPath, []byte(testToken), 0666); err != nil {
+		t.Fatalf("failed to write 0666 token file: %v", err)
+	}
+	_ = os.Chmod(existingTokenPath, 0666)
+
+	srv, err := NewDaemonServerWithDir(42045, tokenDir)
+	if err != nil {
+		t.Fatalf("NewDaemonServerWithDir failed on loose token: %v", err)
+	}
+	if srv.Token != testToken {
+		t.Errorf("expected reused token %q, got %q", testToken, srv.Token)
+	}
+
+	fi2, err := os.Lstat(existingTokenPath)
+	if err != nil {
+		t.Fatalf("stat failed: %v", err)
+	}
+	if fi2.Mode().Perm() != 0600 {
+		t.Errorf("expected NewDaemonServerWithDir to tighten mode to 0600, got %04o", fi2.Mode().Perm())
+	}
+}
+
+func TestTokenPermissions_POSIX_SymlinkRejected(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("skipping symlink test on Windows")
+	}
+
+	tempDir := t.TempDir()
+	targetPath := filepath.Join(tempDir, "target_file")
+	testToken := "1111111111222222222233333333334444444444555555555566666666667777"
+	if err := os.WriteFile(targetPath, []byte(testToken), 0600); err != nil {
+		t.Fatalf("failed to write target file: %v", err)
+	}
+
+	symlinkPath := filepath.Join(tempDir, ".token")
+	if err := os.Symlink(targetPath, symlinkPath); err != nil {
+		t.Fatalf("failed to create symlink: %v", err)
+	}
+
+	// validateSecureTokenPermissions must reject symlink
+	if err := validateSecureTokenPermissions(symlinkPath); err == nil {
+		t.Errorf("expected validateSecureTokenPermissions to reject symlink")
+	}
+
+	// ensureSecureTokenPermissions must refuse to operate on symlink
+	if err := ensureSecureTokenPermissions(symlinkPath); err == nil {
+		t.Errorf("expected ensureSecureTokenPermissions to refuse symlink")
+	}
+
+	// NewDaemonServerWithDir must reject symlink token file
+	_, err := NewDaemonServerWithDir(42046, tempDir)
+	if err == nil {
+		t.Errorf("expected NewDaemonServerWithDir to fail on symlink token file")
+	}
+}
+
+func TestTokenPermissions_POSIX_InsecureModesRejected(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("skipping POSIX file mode test on Windows")
+	}
+
+	insecureModes := []os.FileMode{0644, 0666, 0755, 0777, 0700, 0640, 0400}
+	tempDir := t.TempDir()
+
+	for _, mode := range insecureModes {
+		tokenPath := filepath.Join(tempDir, fmt.Sprintf(".token_%04o", mode))
+		if err := os.WriteFile(tokenPath, []byte("some-token-data"), mode); err != nil {
+			t.Fatalf("failed to write file: %v", err)
+		}
+		_ = os.Chmod(tokenPath, mode)
+
+		if err := validateSecureTokenPermissions(tokenPath); err == nil {
+			t.Errorf("expected validateSecureTokenPermissions to reject mode %04o", mode)
+		}
+	}
+}
+
+func TestWriteSecureToken_RefusesSymlink(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("skipping POSIX symlink test on Windows")
+	}
+
+	tempDir := t.TempDir()
+	victimPath := filepath.Join(tempDir, "victim_file.txt")
+	victimContent := "VICTIM SENSITIVE DATA - MUST NOT BE OVERWRITTEN"
+	if err := os.WriteFile(victimPath, []byte(victimContent), 0644); err != nil {
+		t.Fatalf("failed to write victim file: %v", err)
+	}
+
+	symlinkPath := filepath.Join(tempDir, ".token")
+	if err := os.Symlink(victimPath, symlinkPath); err != nil {
+		t.Fatalf("failed to create symlink: %v", err)
+	}
+
+	// 1. writeSecureToken directly refusing symlink
+	err := writeSecureToken(symlinkPath, "randomtoken12345678901234567890123456789012345678901234567890123456")
+	if err == nil {
+		t.Fatalf("expected writeSecureToken to fail when writing to symlink")
+	}
+	if !strings.Contains(err.Error(), "refusing to write token to symlink") {
+		t.Errorf("expected error mentioning symlink refusal, got: %v", err)
+	}
+
+	// Verify victim content is completely untouched
+	currentData, err := os.ReadFile(victimPath)
+	if err != nil {
+		t.Fatalf("failed to read victim file: %v", err)
+	}
+	if string(currentData) != victimContent {
+		t.Fatalf("VICTIM FILE WAS CORRUPTED! Got %q, want %q", string(currentData), victimContent)
+	}
+
+	// 2. NewDaemonServerWithDir refusing symlink pointing to non-64-byte file
+	_, err = NewDaemonServerWithDir(42055, tempDir)
+	if err == nil {
+		t.Fatalf("expected NewDaemonServerWithDir to fail when .token is a symlink")
+	}
+	if !strings.Contains(err.Error(), "symlink") {
+		t.Errorf("expected error mentioning symlink, got: %v", err)
+	}
+
+	// Verify victim content is still completely untouched
+	currentData2, err := os.ReadFile(victimPath)
+	if err != nil {
+		t.Fatalf("failed to read victim file: %v", err)
+	}
+	if string(currentData2) != victimContent {
+		t.Fatalf("VICTIM FILE WAS CORRUPTED by NewDaemonServerWithDir! Got %q, want %q", string(currentData2), victimContent)
+	}
+
+	// 3. Dangling symlink test
+	danglingSymlink := filepath.Join(tempDir, "dangling_token")
+	nonExistentTarget := filepath.Join(tempDir, "non_existent_victim.txt")
+	if err := os.Symlink(nonExistentTarget, danglingSymlink); err != nil {
+		t.Fatalf("failed to create dangling symlink: %v", err)
+	}
+	err = writeSecureToken(danglingSymlink, "token1234")
+	if err == nil {
+		t.Fatalf("expected writeSecureToken to fail on dangling symlink")
+	}
+	if _, statErr := os.Lstat(nonExistentTarget); !os.IsNotExist(statErr) {
+		t.Fatalf("non-existent target was unexpectedly created through dangling symlink")
+	}
+}
+
+func TestWindowsIcacls_RunnerAndUsernameFallback(t *testing.T) {
+	// 1. Username lookup fallback chain
+	t.Run("UsernameLookupPriority", func(t *testing.T) {
+		t.Setenv("USERNAME", "win_user")
+		t.Setenv("USER", "unix_user")
+		u, err := lookupWindowsUsername()
+		if err != nil || u != "win_user" {
+			t.Errorf("expected win_user, got %q (err: %v)", u, err)
+		}
+
+		t.Setenv("USERNAME", "")
+		t.Setenv("USER", "unix_user")
+		u, err = lookupWindowsUsername()
+		if err != nil || u != "unix_user" {
+			t.Errorf("expected unix_user from USER fallback, got %q (err: %v)", u, err)
+		}
+
+		t.Setenv("USERNAME", "")
+		t.Setenv("USER", "")
+		u, err = lookupWindowsUsername()
+		if err == nil && u == "" {
+			t.Errorf("expected non-empty username or error from user.Current() fallback")
+		}
+	})
+
+	// 2. Mock icaclsRunner invocation for ensureSecureTokenPermissionsWindows
+	t.Run("IcaclsLockdownCommandArgs", func(t *testing.T) {
+		origRunner := icaclsRunner
+		t.Cleanup(func() { icaclsRunner = origRunner })
+
+		t.Setenv("USERNAME", "alice")
+
+		tempDir := t.TempDir()
+		tokenPath := filepath.Join(tempDir, ".token")
+		if err := os.WriteFile(tokenPath, []byte("sample-token"), 0600); err != nil {
+			t.Fatalf("failed to write token: %v", err)
+		}
+
+		type recordedCmd struct {
+			name string
+			args []string
+		}
+		var recorded []recordedCmd
+
+		icaclsRunner = mockIcaclsCommand(0, "Successfully processed 1 files;\n", func(name string, args ...string) {
+			recorded = append(recorded, recordedCmd{name: name, args: args})
+		})
+
+		if err := ensureSecureTokenPermissionsWindows(tokenPath); err != nil {
+			t.Fatalf("ensureSecureTokenPermissionsWindows failed: %v", err)
+		}
+
+		if len(recorded) != 1 {
+			t.Fatalf("expected 1 icacls command, got %d", len(recorded))
+		}
+		cmd := recorded[0]
+		if cmd.name != "icacls" {
+			t.Errorf("expected command 'icacls', got %q", cmd.name)
+		}
+		expectedArgs := []string{tokenPath, "/inheritance:r", "/grant:r", "alice:(R,W)"}
+		if len(cmd.args) != len(expectedArgs) {
+			t.Fatalf("expected %d args, got %d: %v", len(expectedArgs), len(cmd.args), cmd.args)
+		}
+		for i, exp := range expectedArgs {
+			if cmd.args[i] != exp {
+				t.Errorf("arg[%d] mismatch: got %q, want %q", i, cmd.args[i], exp)
+			}
+		}
+	})
+
+	// 3. Mock icaclsRunner error handling
+	t.Run("IcaclsFailureHandling", func(t *testing.T) {
+		origRunner := icaclsRunner
+		t.Cleanup(func() { icaclsRunner = origRunner })
+
+		t.Setenv("USERNAME", "bob")
+
+		tempDir := t.TempDir()
+		tokenPath := filepath.Join(tempDir, ".token")
+		if err := os.WriteFile(tokenPath, []byte("sample-token"), 0600); err != nil {
+			t.Fatalf("failed to write token: %v", err)
+		}
+
+		icaclsRunner = mockIcaclsCommand(1, "Access is denied.\n", nil)
+
+		err := ensureSecureTokenPermissionsWindows(tokenPath)
+		if err == nil {
+			t.Fatalf("expected error when icacls fails with non-zero exit code")
+		}
+		if !strings.Contains(err.Error(), "Access is denied") {
+			t.Errorf("expected error message to contain icacls output, got: %v", err)
+		}
+	})
+
+	// 4. Mock validateSecureTokenPermissionsWindows rejecting inherited ACLs
+	t.Run("IcaclsValidation_RejectsInheritedACLs", func(t *testing.T) {
+		origRunner := icaclsRunner
+		t.Cleanup(func() { icaclsRunner = origRunner })
+
+		t.Setenv("USERNAME", "alice")
+
+		tempDir := t.TempDir()
+		tokenPath := filepath.Join(tempDir, ".token")
+		if err := os.WriteFile(tokenPath, []byte("sample-token"), 0600); err != nil {
+			t.Fatalf("failed to write token: %v", err)
+		}
+
+		var recordedArgs []string
+		icaclsRunner = mockIcaclsCommand(0, "token NT AUTHORITY\\SYSTEM:(I)(F)\n", func(name string, args ...string) {
+			recordedArgs = args
+		})
+
+		err := validateSecureTokenPermissionsWindows(tokenPath)
+		if err == nil {
+			t.Fatalf("expected validateSecureTokenPermissionsWindows to fail on inherited ACLs")
+		}
+		if !strings.Contains(err.Error(), "insecure inherited ACLs") {
+			t.Errorf("expected error message to mention insecure inherited ACLs, got: %v", err)
+		}
+		if len(recordedArgs) != 1 || recordedArgs[0] != tokenPath {
+			t.Errorf("expected validate args [%s], got %v", tokenPath, recordedArgs)
+		}
+	})
+
+	// 5. Mock validateSecureTokenPermissionsWindows rejecting overly permissive broad groups
+	t.Run("IcaclsValidation_RejectsPermissiveGroups", func(t *testing.T) {
+		origRunner := icaclsRunner
+		t.Cleanup(func() { icaclsRunner = origRunner })
+
+		t.Setenv("USERNAME", "alice")
+
+		tempDir := t.TempDir()
+		tokenPath := filepath.Join(tempDir, ".token")
+		if err := os.WriteFile(tokenPath, []byte("sample-token"), 0600); err != nil {
+			t.Fatalf("failed to write token: %v", err)
+		}
+
+		badOutputs := []string{
+			"token Everyone:(R)\n",
+			"token BUILTIN\\Users:(RX)\n",
+			"token NT AUTHORITY\\Authenticated Users:(M)\n",
+		}
+
+		for _, badOut := range badOutputs {
+			icaclsRunner = mockIcaclsCommand(0, badOut, nil)
+			err := validateSecureTokenPermissionsWindows(tokenPath)
+			if err == nil {
+				t.Errorf("expected validation to fail for broad group in output: %q", badOut)
+			}
+			if !strings.Contains(err.Error(), "overly permissive access grants") {
+				t.Errorf("expected error to mention overly permissive access grants, got: %v", err)
+			}
+		}
+	})
+
+	// 6. Mock validateSecureTokenPermissionsWindows rejecting missing user RW grant
+	t.Run("IcaclsValidation_RejectsMissingUserGrant", func(t *testing.T) {
+		origRunner := icaclsRunner
+		t.Cleanup(func() { icaclsRunner = origRunner })
+
+		t.Setenv("USERNAME", "alice")
+
+		tempDir := t.TempDir()
+		tokenPath := filepath.Join(tempDir, ".token")
+		if err := os.WriteFile(tokenPath, []byte("sample-token"), 0600); err != nil {
+			t.Fatalf("failed to write token: %v", err)
+		}
+
+		icaclsRunner = mockIcaclsCommand(0, "token bob:(R,W)\nSuccessfully processed 1 files;\n", nil)
+		err := validateSecureTokenPermissionsWindows(tokenPath)
+		if err == nil {
+			t.Fatalf("expected validation to fail when user 'alice' is missing exclusive grant")
+		}
+		if !strings.Contains(err.Error(), "lacks exclusive permissions for alice") {
+			t.Errorf("expected error mentioning lack of exclusive permissions for alice, got: %v", err)
+		}
+	})
+
+	// 7. Mock validateSecureTokenPermissionsWindows accepting clean locked down ACL
+	t.Run("IcaclsValidation_AcceptsCleanExclusiveACL", func(t *testing.T) {
+		origRunner := icaclsRunner
+		t.Cleanup(func() { icaclsRunner = origRunner })
+
+		t.Setenv("USERNAME", "alice")
+
+		tempDir := t.TempDir()
+		tokenPath := filepath.Join(tempDir, ".token")
+		if err := os.WriteFile(tokenPath, []byte("sample-token"), 0600); err != nil {
+			t.Fatalf("failed to write token: %v", err)
+		}
+
+		// Valid with (R,W)
+		icaclsRunner = mockIcaclsCommand(0, "token alice:(R,W)\nSuccessfully processed 1 files;\n", nil)
+		if err := validateSecureTokenPermissionsWindows(tokenPath); err != nil {
+			t.Fatalf("expected clean (R,W) ACL to pass, got: %v", err)
+		}
+
+		// Valid with (F)
+		icaclsRunner = mockIcaclsCommand(0, "token alice:(F)\nSuccessfully processed 1 files;\n", nil)
+		if err := validateSecureTokenPermissionsWindows(tokenPath); err != nil {
+			t.Fatalf("expected clean (F) ACL to pass, got: %v", err)
+		}
+	})
 }
 
 func TestModsCacheAndInvalidation(t *testing.T) {

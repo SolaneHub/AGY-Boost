@@ -8,6 +8,7 @@ import { updateSidebarActiveState } from "./sidebar.js";
 import { MARKETPLACE_CATALOG } from "./marketplace/catalog.js";
 import { renderSpotlightHost, stopSpotlightTimer } from "./marketplace/spotlight.js";
 import { renderModDetail } from "./marketplace/mod-detail.js";
+import { diagnostics } from "../diagnostics/ring-buffer.js";
 
 type TabType = "installed" | "marketplace";
 
@@ -158,6 +159,7 @@ export function openModsView(bridge: DaemonBridge): void {
 
   mainViewport.appendChild(view);
   activeModsView = view;
+  diagnostics.record("INFO", "mods-view", "Opened AGY Boost mods overlay", { tab: currentTab });
   updateSidebarActiveState(true);
 }
 
@@ -165,6 +167,7 @@ export function openModDetail(modId: string, source: TabType = "marketplace"): v
   stopSpotlightTimer();
   selectedModId = modId;
   selectedModSource = source;
+  diagnostics.record("INFO", "mods-view", `Opened mod detail view for ${modId}`, { modId, source });
   if (activeScrollContainer && activeBridge) {
     renderView(activeScrollContainer, activeBridge);
   }
@@ -179,6 +182,7 @@ export function closeModsView(targetElement?: HTMLElement | null): void {
     old.remove();
   }
   activeModsView = null;
+  diagnostics.record("INFO", "mods-view", "Closed AGY Boost mods overlay");
   updateSidebarActiveState(false, targetElement);
 
   // Disconnect header observer and restore hidden header elements
@@ -485,6 +489,7 @@ function renderMarketplaceTab(
           "agy-card relative isolate flex items-center gap-3 p-3 rounded-xl hover:bg-muted/70 transition-colors h-[72px] cursor-pointer",
         "data-testid": "customization-card",
         "data-card-name": mod.name,
+        "data-mod-id": mod.id,
         onclick: (e: MouseEvent) => {
           if ((e.target as HTMLElement).closest("button")) return;
           openModDetail(mod.id, "marketplace");
@@ -771,6 +776,7 @@ async function renderInstalledTab(
           "agy-card relative isolate flex items-center gap-3 p-3 rounded-xl hover:bg-muted/70 transition-colors h-[72px] cursor-pointer",
         "data-testid": "customization-card",
         "data-card-name": mod.name,
+        "data-mod-id": mod.id,
         onclick: (e: MouseEvent) => {
           if (
             (e.target as HTMLElement).closest("button") ||

@@ -22,9 +22,17 @@ type MockHost struct {
 	OriginalSHA256 string
 }
 
-// NewMockHost creates a fully valid simulated Google Antigravity directory tree inside a temporary directory.
-// The structure matches the native layout of the current operating system (macOS, Windows, or Linux).
-func NewMockHost(t testing.TB) *MockHost {
+// MockHostConfig specifies the options for configuring a simulated Antigravity host.
+type MockHostConfig struct {
+	Version             string            // Host version string (default: "2.32.1")
+	PackageJSON         string            // Raw package.json content (if empty, generated from MainEntry and Version)
+	MainEntry           string            // Main entrypoint path in package.json (default: "dist/main.js")
+	ExtraFiles          map[string][]byte // Additional files inside app.asar
+	OmitResourcesFolder bool              // If true, simulates a broken structure without the resources directory
+}
+
+// NewMockHostWithConfig creates a simulated Antigravity installation tailored to the provided configuration.
+func NewMockHostWithConfig(t testing.TB, cfg MockHostConfig) *MockHost {
 	tempDir := t.TempDir()
 
 	mock := &MockHost{
@@ -50,6 +58,18 @@ func NewMockHost(t testing.TB) *MockHost {
 	mock.ExecutablePath = filepath.Join(tempDir, exeRelPath)
 	mock.AppAsarPath = filepath.Join(mock.ResourcesDir, "app.asar")
 
+	if cfg.OmitResourcesFolder {
+		// Scenario C: Create root and executable, but omit standard resources directory
+		if err := os.MkdirAll(filepath.Dir(mock.ExecutablePath), 0755); err != nil {
+			t.Fatalf("failed to create mock executable dir: %v", err)
+		}
+		dummyBinaryContent := []byte("#!/bin/sh\necho 'Google Antigravity Host Mock (No Resources)'\n")
+		if err := os.WriteFile(mock.ExecutablePath, dummyBinaryContent, 0755); err != nil {
+			t.Fatalf("failed to create mock executable: %v", err)
+		}
+		return mock
+	}
+
 	// Create directories
 	if err := os.MkdirAll(mock.ResourcesDir, 0755); err != nil {
 		t.Fatalf("failed to create mock resources dir: %v", err)
@@ -64,10 +84,27 @@ func NewMockHost(t testing.TB) *MockHost {
 		t.Fatalf("failed to create mock executable: %v", err)
 	}
 
-	// Generate a valid original app.asar containing package.json and dist/main.js
-	originalFiles := map[string][]byte{
-		"package.json": []byte(`{"name":"antigravity","main":"dist/main.js","version":"2.32.1"}`),
-		"dist/main.js": []byte(`console.log("Antigravity host entrypoint running");`),
+	version := cfg.Version
+	if version == "" {
+		version = "2.32.1"
+	}
+
+	mainEntry := cfg.MainEntry
+	if mainEntry == "" {
+		mainEntry = "dist/main.js"
+	}
+
+	pkgJSON := cfg.PackageJSON
+	if pkgJSON == "" {
+		pkgJSON = fmt.Sprintf(`{"name":"antigravity","main":"%s","version":"%s"}`, mainEntry, version)
+	}
+
+	originalFiles := make(map[string][]byte)
+	originalFiles["package.json"] = []byte(pkgJSON)
+	originalFiles[mainEntry] = []byte(fmt.Sprintf(`console.log("Antigravity host entrypoint running: %s");`, mainEntry))
+
+	for k, v := range cfg.ExtraFiles {
+		originalFiles[k] = v
 	}
 
 	if err := patcher.PackAsar(originalFiles, mock.AppAsarPath); err != nil {
@@ -82,6 +119,15 @@ func NewMockHost(t testing.TB) *MockHost {
 	mock.OriginalSHA256 = hash
 
 	return mock
+}
+
+// NewMockHost creates a fully valid simulated Google Antigravity directory tree inside a temporary directory.
+// The structure matches the native layout of the current operating system (macOS, Windows, or Linux).
+func NewMockHost(t testing.TB) *MockHost {
+	return NewMockHostWithConfig(t, MockHostConfig{
+		Version:   "2.32.1",
+		MainEntry: "dist/main.js",
+	})
 }
 
 // FileSHA256 computes the hexadecimal SHA-256 checksum of a file.
