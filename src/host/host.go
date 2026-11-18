@@ -10,6 +10,7 @@ import (
 	"os/user"
 	"path/filepath"
 	"runtime"
+	"strings"
 )
 
 type HostInfo struct {
@@ -231,7 +232,7 @@ func userDataDirForOS(goos, homeDir string) string {
 		return filepath.Join(appData, "AGYBoost")
 	default:
 		var configBase string
-		if xdg := os.Getenv("XDG_CONFIG_HOME"); xdg != "" && filepath.IsAbs(xdg) {
+		if xdg := os.Getenv("XDG_CONFIG_HOME"); xdg != "" && (filepath.IsAbs(xdg) || strings.HasPrefix(xdg, "/")) {
 			configBase = xdg
 		} else {
 			configBase = filepath.Join(homeDir, ".config")

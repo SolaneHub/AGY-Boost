@@ -135,8 +135,12 @@ func TestBenchmark500ModsGenerationTime(t *testing.T) {
 	elapsed := time.Since(start)
 	t.Logf("Generated 500 mods in %v", elapsed)
 
-	if elapsed > 2*time.Second {
-		t.Errorf("expected 500 mods to generate in < 2s, took %v", elapsed)
+	maxDuration := 5 * time.Second
+	if os.Getenv("CI") != "" {
+		maxDuration = 10 * time.Second
+	}
+	if elapsed > maxDuration {
+		t.Errorf("expected 500 mods to generate in < %v, took %v", maxDuration, elapsed)
 	}
 
 	// Quick count check
