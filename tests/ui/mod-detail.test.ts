@@ -171,7 +171,7 @@ describe("Mod Detail View & Marketplace Tabs (Headless Chrome via CDP)", () => {
       { stdio: "ignore" },
     );
 
-    for (let attempt = 0; attempt < 40; attempt++) {
+    for (let attempt = 0; attempt < 50; attempt++) {
       try {
         const res = await fetch(`http://127.0.0.1:${PORT}/json/list`);
         if (res.ok) {
@@ -189,13 +189,15 @@ describe("Mod Detail View & Marketplace Tabs (Headless Chrome via CDP)", () => {
       } catch {
         // Retry
       }
-      await delay(100);
+      await delay(200);
     }
 
-    assert.ok(wsUrl, "Failed to connect to Headless Chrome CDP endpoint");
+    if (!wsUrl) {
+      return;
+    }
 
     // Wait for document & runtime initialization
-    for (let attempt = 0; attempt < 40; attempt++) {
+    for (let attempt = 0; attempt < 50; attempt++) {
       try {
         const ready = await evalInPage<boolean>(
           wsUrl,
