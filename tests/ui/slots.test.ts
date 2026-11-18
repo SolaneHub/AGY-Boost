@@ -133,14 +133,23 @@ describe("Slots & UI Overlay Engine (Headless Chrome CDP)", () => {
   let initialHtmlSnapshot = "";
 
   before(async () => {
+    if (!CHROME_PATH) {
+      return;
+    }
+
+    if (!fs.existsSync(DIST_BUNDLE_PATH)) {
+      try {
+        const { execSync } = await import("node:child_process");
+        execSync("pnpm run build:client", { cwd: rootDir, stdio: "ignore" });
+      } catch {
+        // ignore build error, assert below will report missing file if needed
+      }
+    }
+
     assert.ok(
       fs.existsSync(DIST_BUNDLE_PATH),
       "dist/agy-boost.js must exist before running slots test. Run 'pnpm build'",
     );
-
-    if (!CHROME_PATH) {
-      return;
-    }
 
     tmpDir = await mkdtemp(path.join(os.tmpdir(), "agy-slots-cdp-"));
     const fixtureUrl = pathToFileURL(FIXTURE_PATH).href;

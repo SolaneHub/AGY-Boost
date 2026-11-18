@@ -32,7 +32,7 @@
     "test:gen-mods": "go run ./tests/tooling/modgen",
     "test:stress": "go test -v ./tests/stress/...",
     "test:integration": "go test -v ./tests/...",
-    "test:client": "node --import ./tests/harness/register-loader.mjs --test tests/core/*.test.ts tests/ui/*.test.ts tests/ci/*.test.ts",
+    "test:client": "pnpm run build:client && node --import ./tests/harness/register-loader.mjs --test tests/core/*.test.ts tests/ui/*.test.ts tests/ci/*.test.ts",
     "test:e2e": "pnpm run build:client && node tests/e2e/test_flexbox_invariant.mjs && node tests/e2e/test_full_mod_lifecycle.mjs",
     "test": "go test -v ./src/... ./tests/...",
     "test:all": "pnpm run typecheck && go test -v ./src/... && pnpm run test:client && pnpm run test:integration && pnpm run test:e2e",

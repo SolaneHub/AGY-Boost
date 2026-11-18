@@ -88,6 +88,8 @@ jobs:
 
       - name: Run Unit & Integration Tests (${{ matrix.os }})
         run: go test -v ./src/... ./tests/... && pnpm run test:client
+        env:
+          CHROME_BIN: ${{ steps.setup-chrome.outputs.chrome-path }}
 
       - name: Run Stress Test & Memory Gating (<10MB RAM)
         run: go test -v ./tests/stress/...

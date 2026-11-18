@@ -147,14 +147,23 @@ describe("Sidebar Navigation & Active State Manager (Headless Chrome via CDP)", 
   let serverPort = 0;
 
   before(async () => {
+    if (!CHROME_PATH) {
+      return;
+    }
+
+    if (!fs.existsSync(DIST_BUNDLE_PATH)) {
+      try {
+        const { execSync } = await import("node:child_process");
+        execSync("pnpm run build:client", { cwd: rootDir, stdio: "ignore" });
+      } catch {
+        // ignore build error, assert below will report missing file if needed
+      }
+    }
+
     assert.ok(
       fs.existsSync(DIST_BUNDLE_PATH),
       `dist/agy-boost.js must exist before running sidebar browser tests. Build it via 'pnpm build'`,
     );
-
-    if (!CHROME_PATH) {
-      return;
-    }
 
     // Start a lightweight loopback HTTP server to serve the fixture and runtime bundle
     // with proper HTTP origin semantics (supporting history.pushState).

@@ -143,7 +143,18 @@ interface LayoutDiagnosticsResult {
 }
 
 describe("Client DOM Integration (Headless Chrome via CDP)", () => {
-  it("pre-requisite bundle dist/agy-boost.js exists", () => {
+  it("pre-requisite bundle dist/agy-boost.js exists", async () => {
+    if (!CHROME_PATH) {
+      return;
+    }
+    if (!fs.existsSync(DIST_BUNDLE_PATH)) {
+      try {
+        const { execSync } = await import("node:child_process");
+        execSync("pnpm run build:client", { cwd: rootDir, stdio: "ignore" });
+      } catch {
+        // ignore
+      }
+    }
     assert.ok(
       fs.existsSync(DIST_BUNDLE_PATH),
       `dist/agy-boost.js must exist before running DOM integration test. Build it via 'pnpm build'`,
